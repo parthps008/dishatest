@@ -1,6 +1,7 @@
 import os
 import shutil
 from typing import Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
