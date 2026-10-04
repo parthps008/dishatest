@@ -1,0 +1,753 @@
+{
+  "id": "sub_7746350d28",
+  "test_id": "test_ce1bdc4e",
+  "test_title": "DISHA ACADEMY - ALL INDIA ENTRANCE TEST",
+  "student_name": "ajay",
+  "roll_no": "11",
+  "total_questions": 25,
+  "attempted_count": 3,
+  "correct_count": 1,
+  "wrong_count": 2,
+  "unattempted_count": 22,
+  "total_score": 1.0,
+  "max_score": 25.0,
+  "percentage": 4.0,
+  "time_taken_seconds": 21,
+  "duration_minutes": 15,
+  "auto_submitted": false,
+  "submitted_at": "2026-10-04 11:26:32",
+  "subject_scores": [
+    {
+      "subject": "Physics",
+      "total": 8,
+      "attempted": 3,
+      "correct": 1,
+      "incorrect": 2,
+      "unattempted": 5,
+      "score": 1.0,
+      "percentage": 12.5
+    },
+    {
+      "subject": "Chemistry",
+      "total": 8,
+      "attempted": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unattempted": 8,
+      "score": 0.0,
+      "percentage": 0.0
+    },
+    {
+      "subject": "Mathematics",
+      "total": 9,
+      "attempted": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unattempted": 9,
+      "score": 0.0,
+      "percentage": 0.0
+    }
+  ],
+  "question_results": [
+    {
+      "q_no": 1,
+      "text": "The dimensional formula for Planck's constant is identical to that of:",
+      "options": [
+        {
+          "key": "A",
+          "text": "Linear momentum"
+        },
+        {
+          "key": "B",
+          "text": "Angular momentum"
+        },
+        {
+          "key": "C",
+          "text": "Energy"
+        },
+        {
+          "key": "D",
+          "text": "Power"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": "C",
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": true,
+      "explanation": null
+    },
+    {
+      "q_no": 2,
+      "text": "A body falls freely from rest under gravity. The ratio of distances travelled in 1st, 2nd and 3rd second is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "1 : 2 : 3"
+        },
+        {
+          "key": "B",
+          "text": "1 : 3 : 5"
+        },
+        {
+          "key": "C",
+          "text": "1 : 4 : 9"
+        },
+        {
+          "key": "D",
+          "text": "1 : 1 : 1"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": "C",
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": true,
+      "explanation": null
+    },
+    {
+      "q_no": 3,
+      "text": "Which of the following is a scalar quantity?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Electric field"
+        },
+        {
+          "key": "B",
+          "text": "Magnetic flux"
+        },
+        {
+          "key": "C",
+          "text": "Acceleration"
+        },
+        {
+          "key": "D",
+          "text": "Torque"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": "B",
+      "correct_answer": "B",
+      "is_correct": true,
+      "is_attempted": true,
+      "explanation": null
+    },
+    {
+      "q_no": 4,
+      "text": "A particle moves in a circle of radius 20 cm with constant angular velocity 10 rad/s. Its linear speed is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "1 m/s"
+        },
+        {
+          "key": "B",
+          "text": "2 m/s"
+        },
+        {
+          "key": "C",
+          "text": "20 m/s"
+        },
+        {
+          "key": "D",
+          "text": "0.5 m/s"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 5,
+      "text": "The escape velocity from the surface of Earth does not depend on:",
+      "options": [
+        {
+          "key": "A",
+          "text": "Mass of the earth"
+        },
+        {
+          "key": "B",
+          "text": "Radius of the earth"
+        },
+        {
+          "key": "C",
+          "text": "Mass of the projectile"
+        },
+        {
+          "key": "D",
+          "text": "Gravitational constant"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": null,
+      "correct_answer": "C",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 6,
+      "text": "In simple harmonic motion, the acceleration of the particle is zero when:",
+      "options": [
+        {
+          "key": "A",
+          "text": "Velocity is zero"
+        },
+        {
+          "key": "B",
+          "text": "Displacement is maximum"
+        },
+        {
+          "key": "C",
+          "text": "Particle is at mean position"
+        },
+        {
+          "key": "D",
+          "text": "Potential energy is maximum"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": null,
+      "correct_answer": "C",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 7,
+      "text": "Two wires of same material have lengths in ratio 1:2 and diameters in ratio 2:1. The ratio of their resistances is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "1 : 8"
+        },
+        {
+          "key": "B",
+          "text": "8 : 1"
+        },
+        {
+          "key": "C",
+          "text": "1 : 4"
+        },
+        {
+          "key": "D",
+          "text": "4 : 1"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": null,
+      "correct_answer": "A",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 8,
+      "text": "SI unit of magnetic flux is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "Tesla"
+        },
+        {
+          "key": "B",
+          "text": "Weber"
+        },
+        {
+          "key": "C",
+          "text": "Henry"
+        },
+        {
+          "key": "D",
+          "text": "Gauss"
+        }
+      ],
+      "subject": "Physics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 9,
+      "text": "The number of moles of solute present in 1 kg of solvent is called:",
+      "options": [
+        {
+          "key": "A",
+          "text": "Molarity"
+        },
+        {
+          "key": "B",
+          "text": "Molality"
+        },
+        {
+          "key": "C",
+          "text": "Normality"
+        },
+        {
+          "key": "D",
+          "text": "Mole fraction"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 10,
+      "text": "Which of the following quantum numbers determines the shape of an orbital?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Principal"
+        },
+        {
+          "key": "B",
+          "text": "Azimuthal"
+        },
+        {
+          "key": "C",
+          "text": "Magnetic"
+        },
+        {
+          "key": "D",
+          "text": "Spin"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 11,
+      "text": "Which among the following elements has highest electron affinity?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Fluorine"
+        },
+        {
+          "key": "B",
+          "text": "Chlorine"
+        },
+        {
+          "key": "C",
+          "text": "Bromine"
+        },
+        {
+          "key": "D",
+          "text": "Iodine"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 12,
+      "text": "The hybridization of central carbon atom in methane (CH4) is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "sp"
+        },
+        {
+          "key": "B",
+          "text": "sp2"
+        },
+        {
+          "key": "C",
+          "text": "sp3"
+        },
+        {
+          "key": "D",
+          "text": "sp3d"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "C",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 13,
+      "text": "Which of the following is an amphoteric oxide?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Na2O"
+        },
+        {
+          "key": "B",
+          "text": "SO2"
+        },
+        {
+          "key": "C",
+          "text": "Al2O3"
+        },
+        {
+          "key": "D",
+          "text": "CaO"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "C",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 14,
+      "text": "Oxidation state of Manganese in KMnO4 is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "+2"
+        },
+        {
+          "key": "B",
+          "text": "+4"
+        },
+        {
+          "key": "C",
+          "text": "+6"
+        },
+        {
+          "key": "D",
+          "text": "+7"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "D",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 15,
+      "text": "The gas responsible for greenhouse effect in largest proportion is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "Methane"
+        },
+        {
+          "key": "B",
+          "text": "Carbon dioxide"
+        },
+        {
+          "key": "C",
+          "text": "Ozone"
+        },
+        {
+          "key": "D",
+          "text": "Nitrous oxide"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 16,
+      "text": "PH of a neutral aqueous solution at 25 degrees Celsius is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "0"
+        },
+        {
+          "key": "B",
+          "text": "7"
+        },
+        {
+          "key": "C",
+          "text": "14"
+        },
+        {
+          "key": "D",
+          "text": "1"
+        }
+      ],
+      "subject": "Chemistry",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 17,
+      "text": "If matrix A is orthogonal, then determinant of A is equal to:",
+      "options": [
+        {
+          "key": "A",
+          "text": "0"
+        },
+        {
+          "key": "B",
+          "text": "+1 or -1"
+        },
+        {
+          "key": "C",
+          "text": "2"
+        },
+        {
+          "key": "D",
+          "text": "Any real number"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 18,
+      "text": "The value of limit x->0 of (sin x / x) is equal to:",
+      "options": [
+        {
+          "key": "A",
+          "text": "0"
+        },
+        {
+          "key": "B",
+          "text": "1"
+        },
+        {
+          "key": "C",
+          "text": "Infinity"
+        },
+        {
+          "key": "D",
+          "text": "Does not exist"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 19,
+      "text": "Derivative of e^(2x) with respect to x is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "e^(2x)"
+        },
+        {
+          "key": "B",
+          "text": "2 * e^(2x)"
+        },
+        {
+          "key": "C",
+          "text": "2x * e^(2x)"
+        },
+        {
+          "key": "D",
+          "text": "e^(2x) / 2"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 20,
+      "text": "The roots of equation x^2 - 5x + 6 = 0 are:",
+      "options": [
+        {
+          "key": "A",
+          "text": "2 and 3"
+        },
+        {
+          "key": "B",
+          "text": "-2 and -3"
+        },
+        {
+          "key": "C",
+          "text": "1 and 6"
+        },
+        {
+          "key": "D",
+          "text": "-1 and -6"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "A",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 21,
+      "text": "The value of sin(90 - theta) is equal to:",
+      "options": [
+        {
+          "key": "A",
+          "text": "sin theta"
+        },
+        {
+          "key": "B",
+          "text": "cos theta"
+        },
+        {
+          "key": "C",
+          "text": "-cos theta"
+        },
+        {
+          "key": "D",
+          "text": "tan theta"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 22,
+      "text": "The sum of the first 10 natural numbers (1 + 2 + ... + 10) is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "45"
+        },
+        {
+          "key": "B",
+          "text": "50"
+        },
+        {
+          "key": "C",
+          "text": "55"
+        },
+        {
+          "key": "D",
+          "text": "60"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "C",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 23,
+      "text": "The distance between points (0,0) and (3,4) is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "3"
+        },
+        {
+          "key": "B",
+          "text": "4"
+        },
+        {
+          "key": "C",
+          "text": "5"
+        },
+        {
+          "key": "D",
+          "text": "7"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "C",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 24,
+      "text": "The area of a circle with radius 7 cm (take pi = 22/7) is:",
+      "options": [
+        {
+          "key": "A",
+          "text": "154 cm^2"
+        },
+        {
+          "key": "B",
+          "text": "44 cm^2"
+        },
+        {
+          "key": "C",
+          "text": "88 cm^2"
+        },
+        {
+          "key": "D",
+          "text": "308 cm^2"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "A",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    },
+    {
+      "q_no": 25,
+      "text": "If log10(x) = 2, then x is equal to:",
+      "options": [
+        {
+          "key": "A",
+          "text": "20"
+        },
+        {
+          "key": "B",
+          "text": "100"
+        },
+        {
+          "key": "C",
+          "text": "2"
+        },
+        {
+          "key": "D",
+          "text": "1000"
+        }
+      ],
+      "subject": "Mathematics",
+      "selected_option": null,
+      "correct_answer": "B",
+      "is_correct": false,
+      "is_attempted": false,
+      "explanation": null
+    }
+  ]
+}

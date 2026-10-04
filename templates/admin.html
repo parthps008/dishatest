@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Disha Academy Test Management{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admin.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <!-- Header -->
+    <div class="admin-header">
+        <div class="admin-title-group">
+            <h1><i class="fa-solid fa-sliders text-maroon"></i> Test Management Portal</h1>
+            <p>Upload question paper PDFs, configure dynamic durations, inspect extracted MCQs, and manage tests.</p>
+        </div>
+        <div class="admin-actions-bar">
+            <div class="admin-user-badge" style="display: inline-flex; align-items: center; gap: 0.5rem; background: #ffffff; padding: 0.45rem 0.95rem; border-radius: var(--radius-full); border: 1.5px solid #cbd5e1; font-size: 0.85rem; font-weight: 700; color: var(--primary-navy);">
+                <i class="fa-solid fa-user-shield text-maroon"></i>
+                <span>{{ current_admin or "dishateacher" }}</span>
+            </div>
+            <button type="button" class="btn btn-outline" onclick="loadSampleTestPrompt()">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Load Sample Test
+            </button>
+            <a href="/?from=admin" target="_blank" class="btn btn-primary">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Student Portal
+            </a>
+            <a href="/admin/logout" class="btn btn-danger" title="Logout from Admin Portal" onclick="try{localStorage.removeItem('disha_admin_active');}catch(e){}">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon navy">
+                <i class="fa-solid fa-file-lines"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-value">{% if active_test %}ACTIVE{% else %}NONE{% endif %}</div>
+                <div class="stat-label">Current Test Status</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon gold">
+                <i class="fa-solid fa-clipboard-question"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-value">{{ active_test.total_questions if active_test else 0 }}</div>
+                <div class="stat-label">Total Questions</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">
+                <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-value">{{ submissions|length }}</div>
+                <div class="stat-label">Student Submissions</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon gold">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-value" style="font-size: 1.15rem; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ topper.student_name if topper else 'No submissions yet' }}">
+                    {% if topper %}
+                    {{ topper.student_name }}
+                    {% else %}
+                    No Topper Yet
+                    {% endif %}
+                </div>
+                <div class="stat-label">
+                    {% if topper %}
+                    Topper: {{ topper.score }}/{{ topper.max_score }} ({{ topper.percentage }}%)
+                    {% else %}
+                    Test Topper Rank 1
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTIVE TEST COLUMN / CARD (Single Test Policy) -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <h3><i class="fa-solid fa-circle-check text-green"></i> Active Test Column</h3>
+            {% if active_test %}
+            <span class="badge badge-green"><i class="fa-solid fa-broadcast-tower"></i> Live & Accepting Submissions</span>
+            {% else %}
+            <span class="badge badge-gold"><i class="fa-solid fa-circle-pause"></i> No Test Published</span>
+            {% endif %}
+        </div>
+        <div class="admin-card-body">
+            {% if active_test %}
+            <div class="active-test-row">
+                <div class="test-info-block">
+                    <h4>{{ active_test.title }}</h4>
+                    <div class="test-meta-tags">
+                        <span><i class="fa-solid fa-file-pdf text-maroon"></i> <strong>File:</strong> {{ active_test.pdf_filename or "Uploaded PDF" }}</span>
+                        <span>&bull;</span>
+                        <span><i class="fa-regular fa-clock text-gold"></i> <strong>Duration:</strong> {{ active_test.duration_minutes }} Minutes</span>
+                        <span>&bull;</span>
+                        <span><i class="fa-solid fa-list-check text-navy"></i> <strong>Total Questions:</strong> {{ active_test.total_questions }} MCQs</span>
+                        <span>&bull;</span>
+                        <span><i class="fa-regular fa-calendar"></i> <strong>Created:</strong> {{ active_test.created_at }}</span>
+                    </div>
+                    <div class="subjects-list" style="margin-top: 0.75rem;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-right: 0.5rem;">Subjects:</span>
+                        {% for subj in active_test.subjects %}
+                        <span class="badge badge-navy">{{ subj }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="active-test-actions">
+                    <button type="button" class="btn btn-outline" onclick="openQuestionsModal()">
+                        <i class="fa-solid fa-eye"></i> Inspect Questions
+                    </button>
+                    <a href="/test?from=admin" target="_blank" class="btn btn-primary">
+                        <i class="fa-solid fa-play"></i> Student View
+                    </a>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteTest()">
+                        <i class="fa-solid fa-trash-can"></i> Delete Test
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 2rem 1rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 1rem;">
+                    <strong>No active test is currently loaded.</strong>
+                </p>
+                <p style="font-size: 0.88rem; color: var(--text-muted);">
+                    Use the upload form below to upload a question paper PDF, set the duration, and generate the test.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Upload Question Paper PDF Section -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <h3><i class="fa-solid fa-file-arrow-up"></i> Upload Question Paper PDF & Generate Test</h3>
+            <span class="badge badge-navy">Only 1 Active Test Permitted</span>
+        </div>
+        <div class="admin-card-body">
+            {% if active_test %}
+            <div class="active-limit-warning">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.25rem; margin-top: 2px;"></i>
+                <div>
+                    <strong>An active test is already running.</strong>
+                    <p style="margin-top: 2px;">
+                        The portal enforces <em>one test per time</em>. To upload a new PDF test, please delete the existing active test above using the <strong>Delete Test</strong> button.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+            <form id="uploadPdfForm" onsubmit="handlePdfUpload(event)" {% if active_test %}style="opacity: 0.55; pointer-events: none;"{% endif %}>
+                <!-- Dropzone -->
+                <div class="dropzone" id="pdfDropzone" onclick="document.getElementById('pdfFileInput').click()">
+                    <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                    <h4>Click or drag & drop Question Paper PDF here</h4>
+                    <p>Supports MCQs with options (A), (B), (C), (D) and optional Answer Key section.</p>
+                    <input type="file" id="pdfFileInput" name="file" accept=".pdf" style="display: none;" onchange="handleFileSelect(this)">
+                    <div id="fileSelectionBadge" style="display: none;" class="selected-file-info">
+                        <i class="fa-solid fa-file-pdf text-maroon"></i>
+                        <span id="selectedFileName">filename.pdf</span>
+                        <span id="selectedFileSize" style="color: var(--text-muted); font-size: 0.78rem;"></span>
+                    </div>
+                </div>
+
+                <!-- Duration and Title Controls -->
+                <div class="upload-controls-grid">
+                    <div class="input-group">
+                        <label for="durationSelect">
+                            <i class="fa-regular fa-clock"></i> Test Duration (Dynamic Minutes) <span class="required">*</span>
+                        </label>
+                        <div class="duration-selector-group">
+                            <select id="durationSelect" class="form-control" onchange="toggleCustomDuration(this.value)">
+                                <option value="15">15 Minutes</option>
+                                <option value="30" selected>30 Minutes (Recommended)</option>
+                                <option value="45">45 Minutes</option>
+                                <option value="60">60 Minutes (1 Hour)</option>
+                                <option value="90">90 Minutes (1.5 Hours)</option>
+                                <option value="120">120 Minutes (2 Hours)</option>
+                                <option value="180">180 Minutes (3 Hours)</option>
+                                <option value="custom">Custom Minutes...</option>
+                            </select>
+                            <input type="number" id="customDurationInput" class="form-control custom-duration-input" 
+                                   min="1" max="600" placeholder="Mins" style="display: none;" value="30">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="titleOverrideInput">
+                            <i class="fa-solid fa-heading"></i> Test Title (Optional Override)
+                        </label>
+                        <input type="text" id="titleOverrideInput" class="form-control" 
+                               placeholder="Leave empty to auto-extract from PDF">
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                    <button type="submit" id="generateBtn" class="btn btn-primary btn-lg" style="min-width: 200px;">
+                        <i class="fa-solid fa-bolt"></i> <span>Generate Test</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Student Submissions Log & Leaderboard (Active Test Only) -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <h3><i class="fa-solid fa-trophy text-gold"></i> Active Test Leaderboard & Student Submissions</h3>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <span class="badge badge-gold"><i class="fa-solid fa-filter"></i> Active Test Only</span>
+                <span class="badge badge-navy">{{ submissions|length }} Submissions</span>
+            </div>
+        </div>
+        <div class="admin-card-body" style="padding: 0;">
+            {% if submissions %}
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Rank</th>
+                            <th>Student Name</th>
+                            <th>Roll No</th>
+                            <th>Score</th>
+                            <th>Percentage</th>
+                            <th>Correct / Wrong / Blank</th>
+                            <th>Time Taken</th>
+                            <th>Type</th>
+                            <th>Submitted At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in submissions %}
+                        <tr {% if s.rank == 1 %}style="background: #fffdf5;"{% endif %}>
+                            <td>
+                                {% if s.rank == 1 %}
+                                <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800; border: 1px solid #fde68a;">
+                                    <i class="fa-solid fa-trophy" style="color: #d97706;"></i> 1st (Topper)
+                                </span>
+                                {% elif s.rank == 2 %}
+                                <span class="badge" style="background: #f1f5f9; color: #334155; font-weight: 700; border: 1px solid #cbd5e1;">
+                                    <i class="fa-solid fa-medal" style="color: #64748b;"></i> 2nd
+                                </span>
+                                {% elif s.rank == 3 %}
+                                <span class="badge" style="background: #ffedd5; color: #9a3412; font-weight: 700; border: 1px solid #fed7aa;">
+                                    <i class="fa-solid fa-medal" style="color: #b45309;"></i> 3rd
+                                </span>
+                                {% else %}
+                                <span style="font-weight: 700; color: var(--text-secondary); padding-left: 0.5rem;">
+                                    #{{ s.rank }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ s.student_name }}</strong>
+                                {% if s.rank == 1 %}
+                                <span class="badge badge-gold" style="font-size: 0.7rem; padding: 0.15rem 0.45rem; margin-left: 0.35rem;">
+                                    <i class="fa-solid fa-crown"></i> Topper
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ s.roll_no }}</code></td>
+                            <td><strong style="color: var(--primary-navy);">{{ s.score }}</strong> / {{ s.max_score }}</td>
+                            <td>
+                                <span class="badge {% if s.percentage >= 60 %}badge-green{% elif s.percentage >= 40 %}badge-gold{% else %}badge-red{% endif %}">
+                                    {{ s.percentage }}%
+                                </span>
+                            </td>
+                            <td>
+                                <span class="text-green"><i class="fa-solid fa-check"></i> {{ s.correct_count }}</span> &bull; 
+                                <span class="text-maroon"><i class="fa-solid fa-xmark"></i> {{ s.wrong_count }}</span> &bull; 
+                                <span style="color: var(--text-muted);"><i class="fa-regular fa-circle"></i> {{ s.unattempted_count }}</span>
+                            </td>
+                            <td>
+                                {% if s.time_taken_seconds is defined and s.time_taken_seconds is not none %}
+                                {{ (s.time_taken_seconds // 60) }}m {{ (s.time_taken_seconds % 60) }}s
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if s.auto_submitted %}
+                                <span class="badge badge-gold" title="Auto-submitted when timer reached 00:00">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> Timeout
+                                </span>
+                                {% else %}
+                                <span class="badge badge-navy">
+                                    <i class="fa-solid fa-user-check"></i> Manual
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ s.submitted_at }}</td>
+                            <td>
+                                <a href="/result/{{ s.id }}?from=admin" target="_blank" class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Scorecard
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="padding: 2.5rem; text-align: center; color: var(--text-secondary);">
+                <i class="fa-solid fa-inbox" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+                <p><strong>No student submissions recorded for this active test yet.</strong></p>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;">
+                    When students take this test, their rank and leaderboard will appear here. When this test is deleted, its logs will be deleted with it.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Inspect Extracted Questions -->
+<div id="questionsModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-list-check text-navy"></i> Extracted Test Questions & Answers</h3>
+            <button type="button" class="close-btn" onclick="closeQuestionsModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalQuestionsList">
+            <p>Loading questions...</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeQuestionsModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/admin.js"></script>
+{% endblock %}

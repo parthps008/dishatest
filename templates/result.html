@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Scorecard - {{ sub.student_name }} - Disha Academy{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/result.css">
+{% endblock %}
+
+{% block content %}
+<div class="result-container">
+    <!-- Top Action Bar -->
+    <div class="result-top-bar">
+        <div id="resultNavLeft">
+            {% if is_admin or request.query_params.get('from') == 'admin' %}
+            <a href="/admin" class="btn btn-primary admin-back-btn" style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--primary-navy);">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Portal
+            </a>
+            {% else %}
+            <a href="/" class="btn btn-outline" id="studentHomeBtn">
+                <i class="fa-solid fa-arrow-left"></i> Home Page
+            </a>
+            {% endif %}
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <button type="button" class="btn btn-primary" onclick="window.print()">
+                <i class="fa-solid fa-print"></i> Print / Download Scorecard
+            </button>
+        </div>
+    </div>
+
+    <!-- Official Scorecard Paper -->
+    <div class="scorecard-paper">
+        <!-- Watermark Background -->
+        <img src="/static/images/logo.png" alt="Watermark" class="scorecard-watermark">
+
+        <!-- Header -->
+        <div class="scorecard-header">
+            <div class="inst-info">
+                <img src="/static/images/logo.png" alt="Disha Academy Logo" class="inst-logo">
+                <div class="inst-title">
+                    <h2>DISHA ACADEMY</h2>
+                    <p>OFFICIAL EXAMINATION ASSESSMENT REPORT</p>
+                </div>
+            </div>
+            <div class="doc-type-badge">
+                <div class="doc-title">CBT SCORECARD</div>
+                <div class="doc-sub">Report ID: <code>{{ sub.id }}</code></div>
+            </div>
+        </div>
+
+        <!-- Candidate Details Grid -->
+        <div class="candidate-details-box">
+            <div class="detail-item">
+                <div class="label">Candidate Name</div>
+                <div class="val">{{ sub.student_name }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">Roll Number</div>
+                <div class="val"><code>{{ sub.roll_no }}</code></div>
+            </div>
+            <div class="detail-item">
+                <div class="label">Examination Name</div>
+                <div class="val">{{ sub.test_title }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">Date & Time</div>
+                <div class="val">{{ sub.submitted_at }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">Time Taken</div>
+                <div class="val">{{ (sub.time_taken_seconds // 60) }}m {{ (sub.time_taken_seconds % 60) }}s</div>
+            </div>
+            <div class="detail-item">
+                <div class="label">Submission Mode</div>
+                <div class="val">
+                    {% if sub.auto_submitted %}
+                    <span class="badge badge-gold"><i class="fa-solid fa-clock-rotate-left"></i> Auto-Submitted (Timeout)</span>
+                    {% else %}
+                    <span class="badge badge-green"><i class="fa-solid fa-check-circle"></i> Manual Submit</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Highlight Card -->
+        <div class="score-highlight-card">
+            <div class="score-main-block">
+                <h3>Overall Performance</h3>
+                <div class="score-number">
+                    {{ sub.total_score }} <small>/ {{ sub.max_score }} Marks</small>
+                </div>
+                <div class="score-percent-badge">
+                    <i class="fa-solid fa-percent"></i> Score: {{ sub.percentage }}%
+                </div>
+            </div>
+            <div class="performance-tier">
+                <div class="tier-title">Evaluation Status</div>
+                <div class="tier-grade">
+                    {% if sub.percentage >= 80 %}
+                    <i class="fa-solid fa-trophy"></i> Outstanding
+                    {% elif sub.percentage >= 60 %}
+                    <i class="fa-solid fa-medal"></i> First Class
+                    {% elif sub.percentage >= 40 %}
+                    <i class="fa-solid fa-circle-check"></i> Passed
+                    {% else %}
+                    <i class="fa-solid fa-arrow-trend-up"></i> Keep Practicing
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="result-stats-row">
+            <div class="result-stat-box">
+                <div class="count total">{{ sub.total_questions }}</div>
+                <div class="desc">Total Questions</div>
+            </div>
+            <div class="result-stat-box">
+                <div class="count" style="color: var(--primary-navy);">{{ sub.attempted_count }}</div>
+                <div class="desc">Attempted</div>
+            </div>
+            <div class="result-stat-box">
+                <div class="count correct">{{ sub.correct_count }}</div>
+                <div class="desc">Correct</div>
+            </div>
+            <div class="result-stat-box">
+                <div class="count wrong">{{ sub.wrong_count }}</div>
+                <div class="desc">Incorrect</div>
+            </div>
+            <div class="result-stat-box">
+                <div class="count blank">{{ sub.unattempted_count }}</div>
+                <div class="desc">Unattempted</div>
+            </div>
+            <div class="result-stat-box">
+                <div class="count" style="color: var(--accent-gold);">
+                    {% if sub.attempted_count > 0 %}
+                    {{ ((sub.correct_count / sub.attempted_count) * 100)|round(1) }}%
+                    {% else %}
+                    0%
+                    {% endif %}
+                </div>
+                <div class="desc">Accuracy</div>
+            </div>
+        </div>
+
+        <!-- Subject Wise Breakdown -->
+        {% if sub.subject_scores %}
+        <div class="section-heading">
+            <i class="fa-solid fa-chart-pie text-navy"></i> Subject-Wise Analysis
+        </div>
+        <div class="table-wrapper">
+            <table class="score-table">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Total Qs</th>
+                        <th>Attempted</th>
+                        <th>Correct</th>
+                        <th>Incorrect</th>
+                        <th>Score</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subj in sub.subject_scores %}
+                    <tr>
+                        <td><strong>{{ subj.subject }}</strong></td>
+                        <td>{{ subj.total }}</td>
+                        <td>{{ subj.attempted }}</td>
+                        <td><span class="text-green font-bold">{{ subj.correct }}</span></td>
+                        <td><span class="text-maroon font-bold">{{ subj.incorrect }}</span></td>
+                        <td><strong>{{ subj.score }}</strong> / {{ subj.total }}</td>
+                        <td>
+                            <span class="badge {% if subj.percentage >= 60 %}badge-green{% elif subj.percentage >= 40 %}badge-gold{% else %}badge-red{% endif %}">
+                                {{ subj.percentage }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Detailed Question Review Section -->
+        <div class="section-heading">
+            <i class="fa-solid fa-list-check text-navy"></i> Detailed Question-by-Question Solution
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="review-filter-tabs">
+            <button type="button" class="filter-tab active" onclick="filterQuestions('all', this)">
+                All ({{ sub.total_questions }})
+            </button>
+            <button type="button" class="filter-tab" onclick="filterQuestions('correct', this)">
+                <i class="fa-solid fa-check text-green"></i> Correct ({{ sub.correct_count }})
+            </button>
+            <button type="button" class="filter-tab" onclick="filterQuestions('wrong', this)">
+                <i class="fa-solid fa-xmark text-maroon"></i> Incorrect ({{ sub.wrong_count }})
+            </button>
+            <button type="button" class="filter-tab" onclick="filterQuestions('unattempted', this)">
+                <i class="fa-regular fa-circle"></i> Unattempted ({{ sub.unattempted_count }})
+            </button>
+        </div>
+
+        <!-- Questions List -->
+        <div class="review-questions-list">
+            {% for q in sub.question_results %}
+            {% set q_status = 'correct' if q.is_correct else ('wrong' if q.is_attempted else 'unattempted') %}
+            <div class="review-question-card {{ q_status }}-card" data-status="{{ q_status }}">
+                <div class="review-q-header">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="badge badge-navy">Q{{ q.q_no }}</span>
+                        <span class="badge badge-gold">{{ q.subject }}</span>
+                    </div>
+                    <div>
+                        {% if q.is_correct %}
+                        <span class="badge badge-green"><i class="fa-solid fa-check"></i> Correct (+1)</span>
+                        {% elif q.is_attempted %}
+                        <span class="badge badge-red"><i class="fa-solid fa-xmark"></i> Incorrect (0)</span>
+                        {% else %}
+                        <span class="badge" style="background: #f1f5f9; color: var(--text-muted);"><i class="fa-regular fa-circle"></i> Not Attempted</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="review-q-text">{{ q.text }}</div>
+
+                <div class="review-options-grid">
+                    {% for opt in q.options %}
+                    {% set is_selected = (q.selected_option == opt.key) %}
+                    {% set is_correct_target = (q.correct_answer == opt.key) %}
+                    
+                    <div class="review-opt 
+                        {% if is_selected and q.is_correct %}is-selected-correct{% endif %}
+                        {% if is_selected and not q.is_correct %}is-selected-wrong{% endif %}
+                        {% if is_correct_target and not is_selected %}is-correct-target{% endif %}">
+                        
+                        <span class="review-opt-badge">{{ opt.key }}</span>
+                        <span style="flex: 1;">{{ opt.text }}</span>
+
+                        {% if is_selected and q.is_correct %}
+                        <span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Your Choice & Correct</span>
+                        {% elif is_selected and not q.is_correct %}
+                        <span class="badge badge-red"><i class="fa-solid fa-circle-xmark"></i> Your Choice</span>
+                        {% elif is_correct_target %}
+                        <span class="badge badge-green"><i class="fa-solid fa-check"></i> Correct Answer</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if q.explanation %}
+                <div style="margin-top: 1rem; padding: 0.85rem; background: #fdfaf3; border-radius: var(--radius-sm); font-size: 0.88rem; border-left: 3px solid var(--accent-gold);">
+                    <strong><i class="fa-solid fa-lightbulb text-gold"></i> Solution / Explanation:</strong> {{ q.explanation }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterQuestions(filterType, tabEl) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    tabEl.classList.add('active');
+
+    const cards = document.querySelectorAll('.review-question-card');
+    cards.forEach(card => {
+        const status = card.getAttribute('data-status');
+        if (filterType === 'all' || status === filterType) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

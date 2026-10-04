@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Disha Academy - Online Test Portal{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/static/images/logo.png">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script>
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `portal-toast toast-${type}`;
+            const icon = type === 'success' ? 'fa-circle-check' : 
+                         type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+    </script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="portal-navbar">
+        <div class="nav-container">
+            <a href="{% if request.url.path == '/test' or is_test_page %}javascript:void(0);{% else %}/{% endif %}" class="brand-link" {% if request.url.path == '/test' or is_test_page %}style="cursor: default;"{% endif %}>
+                <img src="/static/images/logo.png" alt="Disha Academy Logo" class="brand-logo">
+                <div class="brand-text">
+                    <span class="brand-name">DISHA ACADEMY</span>
+                    <span class="brand-tagline">EXCELLENCE IN EDUCATION & ENTRANCE EXAMS</span>
+                </div>
+            </a>
+            
+            {% if request.url.path == '/admin/login' %}
+            <div class="nav-actions">
+                <span class="badge badge-navy" style="font-size: 0.85rem; padding: 0.45rem 1rem; border: 1.5px solid #cbd5e1; border-radius: var(--radius-full);">
+                    <i class="fa-solid fa-lock text-maroon"></i> Faculty Login
+                </span>
+                <a href="/" class="nav-btn">
+                    <i class="fa-solid fa-graduation-cap"></i> Student Portal
+                </a>
+            </div>
+            {% elif '/admin' in request.url.path %}
+            <div class="nav-actions">
+                <span class="badge badge-navy" style="font-size: 0.85rem; padding: 0.45rem 1rem; border: 1.5px solid #cbd5e1; border-radius: var(--radius-full);">
+                    <i class="fa-solid fa-user-shield text-maroon"></i> Faculty: {{ current_admin or "dishateacher" }}
+                </span>
+                <a href="/?from=admin" class="nav-btn" target="_blank">
+                    <i class="fa-solid fa-graduation-cap"></i> Student Portal
+                </a>
+                <a href="/admin/logout" class="nav-btn" style="color: #ef4444; border-color: #fca5a5;" title="Logout from Admin Portal" onclick="try{localStorage.removeItem('disha_admin_active');}catch(e){}">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                </a>
+            </div>
+            {% elif is_admin or request.query_params.get('from') == 'admin' %}
+            <div class="nav-actions" id="portalNavActions">
+                <a href="/admin" class="btn btn-primary admin-back-btn" style="background: var(--primary-navy); color: #ffffff; padding: 0.45rem 1.15rem; border-radius: var(--radius-full); font-size: 0.85rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.45rem; box-shadow: 0 2px 8px rgba(13, 34, 64, 0.25);">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Admin Portal
+                </a>
+            </div>
+            {% elif request.url.path == '/test' or is_test_page %}
+            <div class="nav-actions" id="portalNavActions">
+                <span class="badge badge-navy" style="font-size: 0.85rem; padding: 0.45rem 1rem; border: 1.5px solid #cbd5e1; border-radius: var(--radius-full);">
+                    <i class="fa-solid fa-shield-halved text-maroon"></i> Live Examination Session
+                </span>
+            </div>
+            {% else %}
+            <div class="nav-actions" id="portalNavActions">
+                <span class="badge badge-navy" style="font-size: 0.82rem; padding: 0.45rem 0.95rem; border-radius: var(--radius-full); font-weight: 700;">
+                    <i class="fa-solid fa-graduation-cap"></i> Student Portal
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-wrapper">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="portal-footer">
+        <div class="footer-container">
+            <div class="footer-left">
+                <img src="/static/images/logo.png" alt="Disha Academy Logo" class="footer-logo">
+                <div>
+                    <p class="footer-brand">Disha Academy Test Portal</p>
+                    <p class="footer-sub">Empowering students for JEE, NEET, Foundation & Competitive Success</p>
+                </div>
+            </div>
+            <div class="footer-right">
+                <p>&copy; 2026 Disha Academy. All rights reserved.</p>
+                {% if '/admin' in request.url.path and request.url.path != '/admin/login' %}
+                <div class="footer-links">
+                    <a href="/"><i class="fa-solid fa-house"></i> Student Home</a>
+                    <a href="/admin"><i class="fa-solid fa-sliders"></i> Admin Dashboard</a>
+                    <a href="/admin/logout" style="color: #f87171;" onclick="try{localStorage.removeItem('disha_admin_active');}catch(e){}"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </footer>
+
+    <!-- Global Persistent Admin Floating Back Button (Visible when Admin is on non-admin pages) -->
+    {% if not ('/admin' in request.url.path) %}
+    <div id="adminFloatingPill" class="admin-floating-pill" style="{% if not (is_admin or request.query_params.get('from') == 'admin') %}display: none;{% endif %}">
+        <a href="/admin" class="admin-float-link" title="Return to Admin Management Portal">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Back to Admin Portal</span>
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script>
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `portal-toast toast-${type}`;
+            const icon = type === 'success' ? 'fa-circle-check' : 
+                         type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+    </script>
+    <script>
+        // Synchronize admin back button across browser navigation
+        (function() {
+            const path = window.location.pathname;
+            const search = window.location.search;
+            const isLoginPath = path === '/admin/login';
+            const isLogout = path === '/admin/logout' || search.includes('msg=logged_out') || search.includes('logout=1');
+            const isAdminDashboard = path.startsWith('/admin') && !isLoginPath;
+
+            if (isLogout) {
+                try { localStorage.removeItem('disha_admin_active'); } catch(e){}
+                return;
+            }
+
+            if (isLoginPath) {
+                return;
+            }
+
+            if (isAdminDashboard) {
+                try { localStorage.setItem('disha_admin_active', '1'); } catch(e){}
+                return;
+            }
+
+            const hasAdminParam = search.includes('from=admin');
+            const hasAdminStorage = (function(){
+                try { return localStorage.getItem('disha_admin_active') === '1'; } catch(e){ return false; }
+            })();
+
+            if (hasAdminParam || hasAdminStorage) {
+                // 1. Ensure navbar back button is visible
+                const nav = document.getElementById('portalNavActions');
+                if (nav && !nav.querySelector('.admin-back-btn')) {
+                    nav.innerHTML = `
+                        <a href="/admin" class="btn btn-primary admin-back-btn" style="background: var(--primary-navy); color: #ffffff; padding: 0.45rem 1.15rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.45rem; box-shadow: 0 2px 8px rgba(13, 34, 64, 0.25);">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Admin Portal
+                        </a>
+                    `;
+                }
+
+                // 2. Ensure floating return pill is displayed
+                const pill = document.getElementById('adminFloatingPill');
+                if (pill) {
+                    pill.style.display = 'block';
+                }
+
+                // 3. Reveal home page admin banner & enable form parameter if present
+                const banner = document.getElementById('adminNoticeBanner');
+                if (banner) {
+                    banner.style.display = 'flex';
+                }
+                const formParam = document.getElementById('adminFormParam');
+                if (formParam) {
+                    formParam.value = 'admin';
+                    formParam.removeAttribute('disabled');
+                }
+
+                // 4. Reveal exam sticky header admin back button if present
+                const examNav = document.getElementById('examAdminNav');
+                if (examNav) {
+                    examNav.style.display = 'block';
+                    if (!examNav.querySelector('a')) {
+                        examNav.innerHTML = `
+                            <a href="/admin" class="btn btn-primary admin-back-btn" style="background: var(--primary-navy); border: 2px solid var(--accent-gold); color: #ffffff; padding: 0.45rem 1.15rem; border-radius: 9999px; font-size: 0.84rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.45rem; box-shadow: 0 2px 10px rgba(13,34,64,0.25);">
+                                <i class="fa-solid fa-arrow-left"></i> Back to Admin Portal
+                            </a>
+                        `;
+                    }
+                }
+
+                // 5. Reveal result scorecard back button if present
+                const resultNav = document.getElementById('resultNavLeft');
+                if (resultNav && !resultNav.querySelector('.admin-back-btn')) {
+                    resultNav.innerHTML = `
+                        <a href="/admin" class="btn btn-primary admin-back-btn" style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--primary-navy);">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Admin Portal
+                        </a>
+                    `;
+                }
+            }
+        })();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

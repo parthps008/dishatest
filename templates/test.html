@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}{{ test.title }} - Disha Academy MHT-CET CBT Examination{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/test.css?v=2.2">
+{% endblock %}
+
+{% block content %}
+<!-- Sticky Exam Top Bar -->
+<div class="exam-sticky-bar">
+    <div class="exam-bar-container">
+        <!-- Student Info -->
+        <div class="exam-student-meta">
+            <div class="student-avatar">
+                <i class="fa-solid fa-user-graduate"></i>
+            </div>
+            <div class="student-info">
+                <h4>{{ student_name or "Candidate" }}</h4>
+                <p>Roll No: <code>{{ roll_no or "N/A" }}</code></p>
+            </div>
+        </div>
+
+        <!-- Exam Title & Pattern -->
+        <div class="exam-title-badge">
+            <h3 title="{{ test.title }}">{{ test.title }}</h3>
+            <div class="exam-cbt-tag">
+                <i class="fa-solid fa-laptop-code"></i> MHT-CET Computer Based Test Mode
+            </div>
+        </div>
+
+        <!-- Right Section: Admin Back Button & Timer -->
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <!-- Admin Back Button (In Exam Header) -->
+            <div class="exam-admin-nav" id="examAdminNav" style="{% if not (is_admin or request.query_params.get('from') == 'admin') %}display: none;{% endif %}">
+                <a href="/admin" class="btn btn-primary admin-back-btn" style="background: var(--primary-navy); border: 2px solid var(--accent-gold); color: #ffffff; padding: 0.45rem 1.15rem; border-radius: var(--radius-full); font-size: 0.84rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.45rem; box-shadow: 0 2px 10px rgba(13,34,64,0.25);">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Admin Portal
+                </a>
+            </div>
+
+            <!-- Dynamic Timer -->
+            <div class="timer-pill" id="examTimer">
+                <i class="fa-regular fa-clock"></i>
+                <span id="timerDisplay">--:--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cbt-container">
+    <!-- Subject Filter Tabs -->
+    {% if test.subjects and test.subjects|length > 1 %}
+    <div class="subject-tabs-bar" id="subjectTabsBar">
+        <button type="button" class="subject-tab-btn active" onclick="filterPaletteSubject('ALL', this)">
+            <i class="fa-solid fa-layer-group"></i> All Subjects ({{ test.total_questions }})
+        </button>
+        {% for subj in test.subjects %}
+        <button type="button" class="subject-tab-btn" onclick="filterPaletteSubject('{{ subj }}', this)">
+            <i class="fa-solid fa-book-bookmark"></i> {{ subj }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Single Question Card (One question at a time) -->
+    <div class="cbt-question-card" id="questionCard">
+        {% if test.questions and test.questions|length > 0 %}
+            {% set q1 = test.questions[0] %}
+            <div class="q-top-meta">
+                <div class="q-label-number">
+                    <i class="fa-solid fa-file-circle-question text-maroon"></i>
+                    <span id="qNumberDisplay">Question No. {{ q1.q_no }} of {{ test.total_questions }}</span>
+                </div>
+                <div class="q-meta-badges">
+                    <span class="badge badge-navy" id="qSubjectBadge">{{ q1.subject or 'General' }}</span>
+                    <span class="q-marking-badge"><i class="fa-solid fa-plus text-green"></i> 1.0 &bull; <i class="fa-solid fa-minus text-maroon"></i> 0.0</span>
+                    <span class="q-current-status-badge status-not-answered" id="qCurrentStatusBadge">Not Answered</span>
+                </div>
+            </div>
+
+            <!-- Question Statement -->
+            <div class="q-body-text" id="qTextDisplay">
+                {{ q1.text }}
+            </div>
+
+            <!-- MCQ Options (A, B, C, D) -->
+            <div class="cbt-options-list" id="optionsContainer">
+                {% for opt in q1.options %}
+                <label class="cbt-option-item" onclick="selectOptionChoice('{{ opt.key }}', this)">
+                    <input type="radio" name="cbt_option" value="{{ opt.key }}" class="cbt-option-radio">
+                    <span class="cbt-option-badge">{{ opt.key }}</span>
+                    <span class="cbt-option-text">{{ opt.text }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="q-top-meta">
+                <div class="q-label-number">
+                    <span id="qNumberDisplay">No Questions Found</span>
+                </div>
+            </div>
+            <div class="q-body-text" id="qTextDisplay">
+                No questions are loaded in this test. Please contact the administrator.
+            </div>
+            <div class="cbt-options-list" id="optionsContainer"></div>
+        {% endif %}
+
+        <!-- Action Bar directly below the question -->
+        <div class="cbt-action-bar">
+            <div class="action-left-group">
+                <button type="button" class="btn btn-outline" id="prevBtn" onclick="goToPreviousQuestion()" disabled>
+                    <i class="fa-solid fa-chevron-left"></i> Previous
+                </button>
+                <button type="button" class="btn btn-outline" id="nextBtn" onclick="goToNextQuestion()">
+                    Next <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                <button type="button" class="btn btn-outline" onclick="clearCurrentResponse()">
+                    <i class="fa-solid fa-rotate-left"></i> Clear Response
+                </button>
+                <button type="button" class="btn btn-review" onclick="markForReviewAndNext()">
+                    <i class="fa-solid fa-bookmark"></i> Mark for Review & Next
+                </button>
+            </div>
+            
+            <div class="action-right-group">
+                <button type="button" class="btn btn-primary" onclick="saveAndNextQuestion()">
+                    <i class="fa-solid fa-check"></i> Save & Next
+                </button>
+                <button type="button" class="btn btn-success" onclick="openSubmitModal()">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Test
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Reference Palette (Reference Boxes Below the Question) -->
+    <div class="palette-card">
+        <div class="palette-header">
+            <h4>
+                <i class="fa-solid fa-table-cells text-navy"></i> Question Reference Palette
+            </h4>
+            
+            <!-- Palette Legend & Live Counters -->
+            <div class="palette-legend">
+                <div class="legend-item" title="Questions you have answered">
+                    <span class="legend-badge badge-green-legend"></span>
+                    <span>Answered: <strong id="countAnswered">0</strong></span>
+                </div>
+                <div class="legend-item" title="Questions you have skipped without answering">
+                    <span class="legend-badge badge-red-legend"></span>
+                    <span>Not Answered: <strong id="countNotAnswered">1</strong></span>
+                </div>
+                <div class="legend-item" title="Questions you have not opened yet">
+                    <span class="legend-badge badge-gray-legend"></span>
+                    <span>Not Visited: <strong id="countNotVisited">{{ test.total_questions - 1 if test.total_questions > 0 else 0 }}</strong></span>
+                </div>
+                <div class="legend-item" title="Questions marked for review">
+                    <span class="legend-badge badge-purple-legend"></span>
+                    <span>Marked for Review: <strong id="countReview">0</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Reference Boxes Grid -->
+        <div class="palette-grid" id="paletteGrid">
+            {% for q in test.questions %}
+            <div class="palette-box {% if loop.first %}state-not-answered is-current{% else %}state-not-visited{% endif %}" 
+                 id="palette_box_{{ loop.index0 }}" 
+                 data-index="{{ loop.index0 }}" 
+                 data-subject="{{ q.subject or 'General' }}"
+                 title="Question {{ q.q_no }} ({{ q.subject or 'General' }})"
+                 onclick="jumpToQuestion({{ loop.index0 }})">
+                {{ q.q_no }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Final Submit Confirmation (MHT-CET Summary) -->
+<div id="submitModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 580px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-circle-check text-green"></i> Final Exam Submission Summary</h3>
+            <button type="button" class="close-btn" onclick="closeModal('submitModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                Please review your overall question response summary before final submission:
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem; margin-bottom: 1.5rem;">
+                <div style="background: #f0fdf4; border: 1px solid #86efac; padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                    <div style="font-size: 1.6rem; font-weight: 800; color: #166534;" id="modalAnsweredCount">0</div>
+                    <div style="font-size: 0.78rem; font-weight: 700; color: #166534; text-transform: uppercase;">Answered (Green)</div>
+                </div>
+                <div style="background: #fef2f2; border: 1px solid #fca5a5; padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                    <div style="font-size: 1.6rem; font-weight: 800; color: #991b1b;" id="modalNotAnsweredCount">0</div>
+                    <div style="font-size: 0.78rem; font-weight: 700; color: #991b1b; text-transform: uppercase;">Not Answered (Red)</div>
+                </div>
+                <div style="background: #f5f3ff; border: 1px solid #d8b4fe; padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                    <div style="font-size: 1.6rem; font-weight: 800; color: #6b21a8;" id="modalReviewCount">0</div>
+                    <div style="font-size: 0.78rem; font-weight: 700; color: #6b21a8; text-transform: uppercase;">Marked for Review</div>
+                </div>
+                <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                    <div style="font-size: 1.6rem; font-weight: 800; color: #475569;" id="modalNotVisitedCount">0</div>
+                    <div style="font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase;">Not Visited (Gray)</div>
+                </div>
+            </div>
+
+            <p style="font-size: 0.88rem; color: var(--text-secondary); text-align: center;">
+                Are you sure you want to end and submit your examination? Once submitted, your score will be calculated immediately.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('submitModal')">Return to Test</button>
+            <button type="button" id="confirmSubmitBtn" class="btn btn-success" onclick="executeSubmission(false)">
+                <i class="fa-solid fa-check-double"></i> Confirm & Submit Examination
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Auto Submit on Time Expiry -->
+<div id="timeExpiryModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px; text-align: center;">
+        <div class="modal-body" style="padding: 2.5rem 1.5rem;">
+            <div style="width: 70px; height: 70px; border-radius: 50%; background: #fee2e2; color: #b91c1c; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; font-size: 2.2rem;">
+                <i class="fa-solid fa-hourglass-end"></i>
+            </div>
+            <h3 style="font-family: var(--font-heading); font-size: 1.5rem; color: var(--primary-navy); margin-bottom: 0.5rem;">Time Has Expired!</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Your allocated time limit has ended. Your answers are being automatically saved and submitted.
+            </p>
+            <div style="font-size: 0.95rem; font-weight: 700; color: var(--accent-gold);">
+                <i class="fa-solid fa-spinner fa-spin"></i> Submitting test and calculating your score...
+            </div>
+        </div>
+    </div>
+    <!-- Fallback container for legacy cached scripts -->
+    <div id="questionsContainer" style="display: none;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Embedded Test Data -->
+<script>
+    window.TEST_DATA = {{ test | tojson | safe }};
+    window.STUDENT_NAME = {{ student_name | tojson | safe }};
+    window.STUDENT_ROLL = {{ roll_no | tojson | safe }};
+</script>
+<script src="/static/js/test.js?v=2.2"></script>
+{% endblock %}
