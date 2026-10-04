@@ -273,6 +273,19 @@ async def delete_active_test(request: Request):
     else:
         raise HTTPException(status_code=500, detail="Failed to delete active test.")
 
+class UpdateQuestionAnswerRequest(BaseModel):
+    q_no: int
+    correct_answer: str
+
+@app.post("/api/admin/update-question-answer")
+async def update_question_answer(request: Request, payload: UpdateQuestionAnswerRequest):
+    """Allows admin to update or override the correct answer for a specific question."""
+    require_admin_auth(request)
+    success = TestManager.update_question_answer(payload.q_no, payload.correct_answer)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Failed to update answer for Q{payload.q_no}.")
+    return {"success": True, "message": f"Updated Q{payload.q_no} correct answer to Option {payload.correct_answer.upper()}."}
+
 @app.get("/api/admin/submissions")
 async def get_admin_submissions(request: Request):
     """Returns list of student test submissions strictly for the active test."""

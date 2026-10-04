@@ -214,17 +214,32 @@ async function openQuestionsModal() {
         let html = '';
         test.questions.forEach(q => {
             const correctKey = (q.correct_answer || 'A').toUpperCase();
+            const autoDetectedBadge = q.answer_auto_detected 
+                ? '<span class="badge badge-gold" title="Auto mapped from PDF answer key"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Mapped</span>'
+                : '<span class="badge" style="background:#e2e8f0; color:#475569;" title="Manually edited"><i class="fa-solid fa-pen"></i> Edited</span>';
+
             html += `
-                <div class="q-preview-item">
-                    <div class="q-preview-header">
-                        <span class="badge badge-navy">Q${q.q_no}</span>
-                        <span class="badge badge-gold">${q.subject || 'General'}</span>
-                        <span class="badge badge-green">Correct: Option ${correctKey}</span>
+                <div class="q-preview-item" id="q-preview-${q.q_no}">
+                    <div class="q-preview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span class="badge badge-navy">Q${q.q_no}</span>
+                            <span class="badge badge-gold">${q.subject || 'General'}</span>
+                            ${autoDetectedBadge}
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-size:12px; font-weight:600; color:#333; margin:0;">Correct Answer:</label>
+                            <select class="form-select form-select-sm" style="display:inline-block; width:auto; padding:2px 8px; font-weight:bold; color:var(--green); border:1.5px solid var(--green); border-radius:4px; cursor:pointer;" onchange="updateQuestionAnswer(${q.q_no}, this.value)">
+                                <option value="A" ${correctKey === 'A' ? 'selected' : ''}>Option A</option>
+                                <option value="B" ${correctKey === 'B' ? 'selected' : ''}>Option B</option>
+                                <option value="C" ${correctKey === 'C' ? 'selected' : ''}>Option C</option>
+                                <option value="D" ${correctKey === 'D' ? 'selected' : ''}>Option D</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="q-preview-text">${q.text}</div>
+                    <div class="q-preview-text" style="margin-top:8px;">${q.text}</div>
                     <div class="q-preview-opts">
                         ${q.options.map(opt => `
-                            <div class="q-opt-pill ${opt.key === correctKey ? 'is-correct' : ''}">
+                            <div class="q-opt-pill ${opt.key === correctKey ? 'is-correct' : ''}" data-key="${opt.key}">
                                 <strong>(${opt.key})</strong> ${opt.text}
                             </div>
                         `).join('')}
@@ -239,6 +254,35 @@ async function openQuestionsModal() {
     }
 }
 
+async function updateQuestionAnswer(qNo, newAnswer) {
+    try {
+        const response = await fetch('/api/admin/update-question-answer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q_no: qNo, correct_answer: newAnswer })
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+            showToast(`Q${qNo} correct answer updated to Option ${newAnswer}!`, 'success');
+            const item = document.getElementById(`q-preview-${qNo}`);
+            if (item) {
+                item.querySelectorAll('.q-opt-pill').forEach(pill => {
+                    if (pill.getAttribute('data-key') === newAnswer) {
+                        pill.classList.add('is-correct');
+                    } else {
+                        pill.classList.remove('is-correct');
+                    }
+                });
+            }
+        } else {
+            showToast(data.detail || 'Failed to update answer.', 'error');
+        }
+    } catch (err) {
+        showToast('Error updating question answer.', 'error');
+    }
+}
+
 function closeQuestionsModal() {
     document.getElementById('questionsModal').classList.remove('open');
 }
+

@@ -115,6 +115,31 @@ class TestManager:
         return True
 
     @staticmethod
+    def update_question_answer(q_no: int, new_answer: str) -> bool:
+        """Update correct answer for a specific question in active test."""
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return False
+
+        new_answer = new_answer.strip().upper()
+        if new_answer not in ["A", "B", "C", "D"]:
+            return False
+
+        found = False
+        for q in active_test["questions"]:
+            if q.get("q_no") == q_no:
+                q["correct_answer"] = new_answer
+                q["answer_auto_detected"] = False
+                found = True
+                break
+
+        if found:
+            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            return True
+        return False
+
+    @staticmethod
     def submit_test(submission: TestSubmissionRequest) -> SubmissionResult:
         """Grade student answers against active test and save submission."""
         active_test = TestManager.get_active_test()

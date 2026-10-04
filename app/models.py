@@ -12,6 +12,7 @@ class Question(BaseModel):
     text: str
     options: List[Option]
     correct_answer: str = "A" # "A", "B", "C", "D"
+    answer_auto_detected: Optional[bool] = True
     subject: str = "General"
     marks: int = 1
     negative_marks: float = 0.0
