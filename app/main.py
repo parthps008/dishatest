@@ -1,5 +1,6 @@
 import os
 import shutil
+import uuid
 from typing import Optional
 from pydantic import BaseModel
 from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
@@ -26,7 +27,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 UPLOADS_DIR = os.path.join(BASE_DIR, "data", "uploads")
+QUESTION_IMAGES_DIR = os.path.join(STATIC_DIR, "uploads", "questions")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(QUESTION_IMAGES_DIR, exist_ok=True)
 
 app = FastAPI(title="Disha Academy Test Portal")
 
@@ -286,6 +289,62 @@ async def update_question_answer(request: Request, payload: UpdateQuestionAnswer
     if not success:
         raise HTTPException(status_code=400, detail=f"Failed to update answer for Q{payload.q_no}.")
     return {"success": True, "message": f"Updated Q{payload.q_no} correct answer to Option {payload.correct_answer.upper()}."}
+
+class RemoveQuestionImageRequest(BaseModel):
+    q_no: int
+
+@app.post("/api/admin/upload-question-image")
+async def upload_question_image(
+    request: Request,
+    q_no: int = Form(...),
+    file: UploadFile = File(...)
+):
+    """Uploads and attaches a diagram/image to a specific question in active test."""
+    require_admin_auth(request)
+
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"}
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Allowed formats: PNG, JPG, JPEG, WEBP, SVG, GIF."
+        )
+
+    safe_filename = f"diagram_q{q_no}_{uuid.uuid4().hex[:8]}{ext}"
+    target_path = os.path.join(QUESTION_IMAGES_DIR, safe_filename)
+
+    with open(target_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    image_url = f"/static/uploads/questions/{safe_filename}"
+    success = TestManager.attach_question_image(q_no, image_url)
+    if not success:
+        if os.path.exists(target_path):
+            try:
+                os.remove(target_path)
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail=f"Question Q{q_no} not found in active test.")
+
+    return {
+        "success": True,
+        "q_no": q_no,
+        "image_url": image_url,
+        "message": f"Diagram successfully attached to Question {q_no}!"
+    }
+
+@app.post("/api/admin/remove-question-image")
+async def remove_question_image(request: Request, payload: RemoveQuestionImageRequest):
+    """Removes attached diagram/image from a specific question."""
+    require_admin_auth(request)
+    success = TestManager.remove_question_image(payload.q_no)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Question Q{payload.q_no} not found in active test.")
+    return {
+        "success": True,
+        "q_no": payload.q_no,
+        "message": f"Diagram removed from Question {payload.q_no}."
+    }
 
 @app.get("/api/admin/submissions")
 async def get_admin_submissions(request: Request):

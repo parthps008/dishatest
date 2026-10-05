@@ -13,6 +13,7 @@ class Question(BaseModel):
     options: List[Option]
     correct_answer: str = "A" # "A", "B", "C", "D"
     answer_auto_detected: Optional[bool] = True
+    image_url: Optional[str] = None # Attached diagram/image URL
     subject: str = "General"
     marks: int = 1
     negative_marks: float = 0.0
@@ -54,6 +55,7 @@ class QuestionResult(BaseModel):
     correct_answer: str
     is_correct: bool
     is_attempted: bool
+    image_url: Optional[str] = None
     explanation: Optional[str] = None
 
 class SubjectScore(BaseModel):

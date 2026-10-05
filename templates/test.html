@@ -83,6 +83,14 @@
                 {{ q1.text }}
             </div>
 
+            <!-- Attached Diagram / Image if present -->
+            <div class="q-diagram-container" id="qDiagramContainer" style="{% if not q1.image_url %}display:none;{% endif %}">
+                <div class="q-diagram-wrapper">
+                    <img src="{{ q1.image_url or '' }}" id="qDiagramImg" class="q-diagram-img" alt="Question Diagram" onclick="openDiagramLightbox(this.src)">
+                    <div class="q-diagram-caption"><i class="fa-solid fa-magnifying-glass-plus"></i> Click diagram to expand</div>
+                </div>
+            </div>
+
             <!-- MCQ Options (A, B, C, D) -->
             <div class="cbt-options-list" id="optionsContainer">
                 {% for opt in q1.options %}

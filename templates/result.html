@@ -226,6 +226,15 @@
 
                 <div class="review-q-text">{{ q.text }}</div>
 
+                {% if q.image_url %}
+                <div class="q-diagram-container" style="margin: 0.85rem 0;">
+                    <div class="q-diagram-wrapper">
+                        <img src="{{ q.image_url }}" class="q-diagram-img" style="max-height: 280px;" alt="Question {{ q.q_no }} Diagram" onclick="openDiagramLightbox(this.src)">
+                        <div class="q-diagram-caption"><i class="fa-solid fa-magnifying-glass-plus"></i> Click diagram to expand</div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="review-options-grid">
                     {% for opt in q.options %}
                     {% set is_selected = (q.selected_option == opt.key) %}
@@ -278,5 +287,37 @@ function filterQuestions(filterType, tabEl) {
         }
     });
 }
+
+// Diagram Lightbox for Solution Review
+function openDiagramLightbox(src) {
+    if (!src) return;
+    let modal = document.getElementById('diagramLightbox');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'diagramLightbox';
+        modal.className = 'diagram-lightbox-modal';
+        modal.innerHTML = `
+            <div class="diagram-lightbox-backdrop" onclick="closeDiagramLightbox()"></div>
+            <div class="diagram-lightbox-content">
+                <button type="button" class="diagram-lightbox-close" onclick="closeDiagramLightbox()">&times;</button>
+                <img src="" id="lightboxModalImg" class="diagram-lightbox-img" alt="Zoomed Diagram">
+                <div class="diagram-lightbox-hint">Click outside or press ESC to close</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    const imgEl = document.getElementById('lightboxModalImg');
+    if (imgEl) imgEl.src = src;
+    modal.classList.add('open');
+}
+
+function closeDiagramLightbox() {
+    const modal = document.getElementById('diagramLightbox');
+    if (modal) modal.classList.remove('open');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDiagramLightbox();
+});
 </script>
 {% endblock %}

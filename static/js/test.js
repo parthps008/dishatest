@@ -175,6 +175,19 @@ function loadQuestion(index) {
         textEl.textContent = q.text || `Question ${qNum}`;
     }
 
+    // Question Diagram / Image
+    const diagramContainer = document.getElementById('qDiagramContainer');
+    const diagramImg = document.getElementById('qDiagramImg');
+    if (diagramContainer && diagramImg) {
+        if (q.image_url) {
+            diagramImg.src = q.image_url;
+            diagramContainer.style.display = 'block';
+        } else {
+            diagramContainer.style.display = 'none';
+            diagramImg.src = '';
+        }
+    }
+
     // Render Options
     const selectedOption = userAnswers[qNum] || null;
     const optionsContainer = document.getElementById('optionsContainer');
@@ -592,3 +605,35 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+// Diagram Lightbox for enlarging question diagrams
+function openDiagramLightbox(src) {
+    if (!src) return;
+    let modal = document.getElementById('diagramLightbox');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'diagramLightbox';
+        modal.className = 'diagram-lightbox-modal';
+        modal.innerHTML = `
+            <div class="diagram-lightbox-backdrop" onclick="closeDiagramLightbox()"></div>
+            <div class="diagram-lightbox-content">
+                <button type="button" class="diagram-lightbox-close" onclick="closeDiagramLightbox()">&times;</button>
+                <img src="" id="lightboxModalImg" class="diagram-lightbox-img" alt="Zoomed Diagram">
+                <div class="diagram-lightbox-hint">Click outside or press ESC to close</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    const imgEl = document.getElementById('lightboxModalImg');
+    if (imgEl) imgEl.src = src;
+    modal.classList.add('open');
+}
+
+function closeDiagramLightbox() {
+    const modal = document.getElementById('diagramLightbox');
+    if (modal) modal.classList.remove('open');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDiagramLightbox();
+});

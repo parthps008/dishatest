@@ -44,6 +44,7 @@ class TestManager:
                 "q_no": q["q_no"],
                 "text": q["text"],
                 "options": q["options"],
+                "image_url": q.get("image_url"),
                 "subject": q.get("subject", "General"),
                 "marks": q.get("marks", 1)
             })
@@ -140,6 +141,56 @@ class TestManager:
         return False
 
     @staticmethod
+    def attach_question_image(q_no: int, image_url: str) -> bool:
+        """Attach an image/diagram URL to a specific question."""
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return False
+
+        found = False
+        for q in active_test["questions"]:
+            if q.get("q_no") == q_no:
+                q["image_url"] = image_url
+                found = True
+                break
+
+        if found:
+            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            return True
+        return False
+
+    @staticmethod
+    def remove_question_image(q_no: int) -> bool:
+        """Remove attached image/diagram from a specific question."""
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return False
+
+        found = False
+        for q in active_test["questions"]:
+            if q.get("q_no") == q_no:
+                old_url = q.get("image_url")
+                if old_url:
+                    clean_path = old_url.lstrip("/")
+                    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    local_file = os.path.join(base_dir, clean_path.replace("/", os.sep))
+                    if os.path.exists(local_file):
+                        try:
+                            os.remove(local_file)
+                        except Exception:
+                            pass
+                q["image_url"] = None
+                found = True
+                break
+
+        if found:
+            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            return True
+        return False
+
+    @staticmethod
     def submit_test(submission: TestSubmissionRequest) -> SubmissionResult:
         """Grade student answers against active test and save submission."""
         active_test = TestManager.get_active_test()
@@ -211,6 +262,7 @@ class TestManager:
                 correct_answer=correct,
                 is_correct=is_correct,
                 is_attempted=is_attempted,
+                image_url=q.get("image_url"),
                 explanation=q.get("explanation")
             ))
 

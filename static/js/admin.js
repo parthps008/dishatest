@@ -218,6 +218,40 @@ async function openQuestionsModal() {
                 ? '<span class="badge badge-gold" title="Auto mapped from PDF answer key"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Mapped</span>'
                 : '<span class="badge" style="background:#e2e8f0; color:#475569;" title="Manually edited"><i class="fa-solid fa-pen"></i> Edited</span>';
 
+            const hasDiagram = !!q.image_url;
+            const diagramHtml = hasDiagram ? `
+                <div class="q-diagram-section" id="q-diagram-wrap-${q.q_no}" style="margin: 10px 0; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1.5px solid #e2e8f0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:6px;">
+                        <span style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">
+                            <i class="fa-solid fa-image text-gold"></i> Attached Diagram / Image:
+                        </span>
+                        <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 11px; color: var(--accent-maroon); border-color: #fca5a5;" onclick="removeQuestionImage(${q.q_no})">
+                            <i class="fa-solid fa-trash-can"></i> Remove Image
+                        </button>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="${q.image_url}" id="q-img-${q.q_no}" style="max-height: 180px; max-width: 100%; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: zoom-in;" onclick="window.open(this.src, '_blank')" alt="Diagram for Q${q.q_no}" title="Click to view full image">
+                    </div>
+                    <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
+                        <label class="btn btn-outline" style="padding: 2px 10px; font-size: 11px; cursor: pointer; margin: 0;">
+                            <i class="fa-solid fa-arrows-rotate"></i> Replace Image
+                            <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionImage(${q.q_no}, this.files[0])">
+                        </label>
+                    </div>
+                </div>
+            ` : `
+                <div class="q-diagram-section" id="q-diagram-wrap-${q.q_no}" style="margin: 10px 0; padding: 8px 12px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-image" style="color: #94a3b8;"></i>
+                        <span>No diagram attached (optional for STEM / figures)</span>
+                    </div>
+                    <label class="btn btn-outline" style="padding: 3px 10px; font-size: 11px; cursor: pointer; margin: 0; background: white; border-color: #cbd5e1; font-weight: 600;">
+                        <i class="fa-solid fa-cloud-arrow-up text-gold"></i> Attach Diagram / Image
+                        <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionImage(${q.q_no}, this.files[0])">
+                    </label>
+                </div>
+            `;
+
             html += `
                 <div class="q-preview-item" id="q-preview-${q.q_no}">
                     <div class="q-preview-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -237,6 +271,7 @@ async function openQuestionsModal() {
                         </div>
                     </div>
                     <div class="q-preview-text" style="margin-top:8px;">${q.text}</div>
+                    ${diagramHtml}
                     <div class="q-preview-opts">
                         ${q.options.map(opt => `
                             <div class="q-opt-pill ${opt.key === correctKey ? 'is-correct' : ''}" data-key="${opt.key}">
@@ -251,6 +286,103 @@ async function openQuestionsModal() {
         container.innerHTML = html;
     } catch (err) {
         container.innerHTML = '<p class="text-maroon">Error loading questions details.</p>';
+    }
+}
+
+async function uploadQuestionImage(qNo, file) {
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('Image size exceeds 10MB limit.', 'error');
+        return;
+    }
+
+    const wrap = document.getElementById(`q-diagram-wrap-${qNo}`);
+    if (wrap) {
+        wrap.innerHTML = `<span style="font-size: 12px; color: var(--primary-navy);"><i class="fa-solid fa-spinner fa-spin"></i> Uploading diagram to Q${qNo}...</span>`;
+    }
+
+    const formData = new FormData();
+    formData.append('q_no', qNo);
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/admin/upload-question-image', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+            showToast(data.message || `Diagram attached to Q${qNo}!`, 'success');
+            if (wrap) {
+                wrap.style.border = '1.5px solid #e2e8f0';
+                wrap.style.display = 'block';
+                wrap.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:6px;">
+                        <span style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">
+                            <i class="fa-solid fa-image text-gold"></i> Attached Diagram / Image:
+                        </span>
+                        <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 11px; color: var(--accent-maroon); border-color: #fca5a5;" onclick="removeQuestionImage(${qNo})">
+                            <i class="fa-solid fa-trash-can"></i> Remove Image
+                        </button>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="${data.image_url}" id="q-img-${qNo}" style="max-height: 180px; max-width: 100%; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: zoom-in;" onclick="window.open(this.src, '_blank')" alt="Diagram for Q${qNo}" title="Click to view full image">
+                    </div>
+                    <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
+                        <label class="btn btn-outline" style="padding: 2px 10px; font-size: 11px; cursor: pointer; margin: 0;">
+                            <i class="fa-solid fa-arrows-rotate"></i> Replace Image
+                            <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionImage(${qNo}, this.files[0])">
+                        </label>
+                    </div>
+                `;
+            }
+        } else {
+            showToast(data.detail || 'Failed to upload image.', 'error');
+            openQuestionsModal();
+        }
+    } catch (err) {
+        showToast('Network error uploading diagram.', 'error');
+        openQuestionsModal();
+    }
+}
+
+async function removeQuestionImage(qNo) {
+    if (!confirm(`Are you sure you want to remove the diagram from Question ${qNo}?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/admin/remove-question-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q_no: qNo })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+            showToast(data.message || `Diagram removed from Q${qNo}.`, 'success');
+            const wrap = document.getElementById(`q-diagram-wrap-${qNo}`);
+            if (wrap) {
+                wrap.style.border = '1px dashed #cbd5e1';
+                wrap.style.display = 'flex';
+                wrap.innerHTML = `
+                    <div style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-image" style="color: #94a3b8;"></i>
+                        <span>No diagram attached (optional for STEM / figures)</span>
+                    </div>
+                    <label class="btn btn-outline" style="padding: 3px 10px; font-size: 11px; cursor: pointer; margin: 0; background: white; border-color: #cbd5e1; font-weight: 600;">
+                        <i class="fa-solid fa-cloud-arrow-up text-gold"></i> Attach Diagram / Image
+                        <input type="file" accept="image/*" style="display:none;" onchange="uploadQuestionImage(${qNo}, this.files[0])">
+                    </label>
+                `;
+            }
+        } else {
+            showToast(data.detail || 'Failed to remove diagram.', 'error');
+        }
+    } catch (err) {
+        showToast('Error removing diagram.', 'error');
     }
 }
 
