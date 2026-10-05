@@ -11,10 +11,9 @@ from app.test_manager import TestManager
 from app.auth import create_session_token, ADMIN_USERNAME, SESSION_COOKIE_NAME
 
 class TestQuestionEditor(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.client = TestClient(app)
-        cls.token = create_session_token(ADMIN_USERNAME)
+    def setUp(self):
+        self.client = TestClient(app)
+        self.token = create_session_token(ADMIN_USERNAME)
 
         # Initialize a known test state for testing
         test_fixture = {
@@ -188,5 +187,28 @@ class TestQuestionEditor(unittest.TestCase):
             self.assertEqual(q["q_no"], expected_q_no)
             self.assertEqual(q["id"], expected_q_no)
 
+    def test_delete_active_test_disk_cleanup(self):
+        from app.test_manager import QUESTION_IMAGES_DIR
+        self.client.cookies.set(SESSION_COOKIE_NAME, self.token)
+
+        # Upload a dummy diagram first
+        dummy_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+        files = {"file": ("test_diagram_cleanup.png", io.BytesIO(dummy_png), "image/png")}
+        res = self.client.post("/api/admin/upload-question-image", data={"q_no": 1}, files=files)
+        self.assertEqual(res.status_code, 200)
+
+        # Confirm file exists in QUESTION_IMAGES_DIR
+        files_before = os.listdir(QUESTION_IMAGES_DIR)
+        self.assertTrue(len(files_before) > 0)
+
+        # Delete active test
+        del_res = self.client.delete("/api/admin/delete-test")
+        self.assertEqual(del_res.status_code, 200)
+
+        # Confirm all files in QUESTION_IMAGES_DIR were cleaned up
+        files_after = os.listdir(QUESTION_IMAGES_DIR)
+        self.assertEqual(len(files_after), 0, f"Expected empty directory, but found: {files_after}")
+
 if __name__ == "__main__":
     unittest.main()
+

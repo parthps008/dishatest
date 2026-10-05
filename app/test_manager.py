@@ -8,13 +8,17 @@ from app.models import (
     SubmissionResult, QuestionResult, SubjectScore
 )
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 ACTIVE_TEST_FILE = os.path.join(DATA_DIR, "active_test.json")
 SUBMISSIONS_DIR = os.path.join(DATA_DIR, "submissions")
 SUBMISSIONS_INDEX_FILE = os.path.join(DATA_DIR, "submissions_index.json")
+UPLOADS_DIR = os.path.join(BASE_DIR, "static", "uploads")
+QUESTION_IMAGES_DIR = os.path.join(UPLOADS_DIR, "questions")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(SUBMISSIONS_DIR, exist_ok=True)
+os.makedirs(QUESTION_IMAGES_DIR, exist_ok=True)
 
 class TestManager:
     @staticmethod
@@ -76,8 +80,9 @@ class TestManager:
     @staticmethod
     def delete_active_test() -> bool:
         """
-        Delete the currently active test and all associated student logs/submissions.
-        Enforces test-wise logs: when a test is deleted, all its student records are deleted too.
+        Delete the currently active test, its uploaded PDF, all question diagrams,
+        and all associated student logs/submissions.
+        Enforces test-wise logs and 100% disk cleanup when a test is deleted.
         """
         active_test = TestManager.get_active_test()
         test_id = active_test.get("id") if active_test else None
@@ -105,7 +110,49 @@ class TestManager:
             except Exception as e:
                 print(f"Error cleaning submissions for test {test_id}: {e}")
 
-        # 2. Delete the active test file
+        # 2. Delete all uploaded diagrams and images for this test (free up disk space)
+        if active_test and "questions" in active_test:
+            for q in active_test["questions"]:
+                # Main question image
+                if q.get("image_url"):
+                    clean_path = q["image_url"].lstrip("/")
+                    local_file = os.path.join(BASE_DIR, clean_path.replace("/", os.sep))
+                    if os.path.exists(local_file):
+                        try:
+                            os.remove(local_file)
+                        except Exception:
+                            pass
+                # Option images
+                for opt in q.get("options", []):
+                    if opt.get("image_url"):
+                        clean_path = opt["image_url"].lstrip("/")
+                        local_file = os.path.join(BASE_DIR, clean_path.replace("/", os.sep))
+                        if os.path.exists(local_file):
+                            try:
+                                os.remove(local_file)
+                            except Exception:
+                                pass
+
+        # Clean any remaining diagram files in QUESTION_IMAGES_DIR to reclaim 100% space
+        if os.path.exists(QUESTION_IMAGES_DIR):
+            for fname in os.listdir(QUESTION_IMAGES_DIR):
+                fpath = os.path.join(QUESTION_IMAGES_DIR, fname)
+                if os.path.isfile(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+
+        # 3. Delete uploaded source PDF if present in static/uploads
+        if active_test and active_test.get("pdf_filename"):
+            pdf_path = os.path.join(UPLOADS_DIR, active_test["pdf_filename"])
+            if os.path.exists(pdf_path):
+                try:
+                    os.remove(pdf_path)
+                except Exception:
+                    pass
+
+        # 4. Delete the active test file
         if os.path.exists(ACTIVE_TEST_FILE):
             try:
                 os.remove(ACTIVE_TEST_FILE)
