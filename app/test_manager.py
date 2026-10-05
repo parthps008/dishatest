@@ -136,6 +136,8 @@ class TestManager:
         # Clean any remaining diagram files in QUESTION_IMAGES_DIR to reclaim 100% space
         if os.path.exists(QUESTION_IMAGES_DIR):
             for fname in os.listdir(QUESTION_IMAGES_DIR):
+                if fname == ".gitkeep":
+                    continue
                 fpath = os.path.join(QUESTION_IMAGES_DIR, fname)
                 if os.path.isfile(fpath):
                     try:

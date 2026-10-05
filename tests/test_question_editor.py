@@ -206,7 +206,7 @@ class TestQuestionEditor(unittest.TestCase):
         self.assertEqual(del_res.status_code, 200)
 
         # Confirm all files in QUESTION_IMAGES_DIR were cleaned up
-        files_after = os.listdir(QUESTION_IMAGES_DIR)
+        files_after = [f for f in os.listdir(QUESTION_IMAGES_DIR) if f != ".gitkeep"]
         self.assertEqual(len(files_after), 0, f"Expected empty directory, but found: {files_after}")
 
 if __name__ == "__main__":
