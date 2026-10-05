@@ -293,6 +293,38 @@ async def update_question_answer(request: Request, payload: UpdateQuestionAnswer
 class RemoveQuestionImageRequest(BaseModel):
     q_no: int
 
+def optimize_and_save_uploaded_image(upload_file: UploadFile, target_path: str, max_width: int = 1200):
+    """
+    Compresses and auto-optimizes uploaded mobile screenshots and diagram images.
+    Converts huge 3-5MB phone screenshots into crisp ~60-120KB images so tests load instantly on mobile data.
+    """
+    ext = os.path.splitext(target_path)[1].lower()
+    try:
+        from PIL import Image, ImageOps
+        img = Image.open(upload_file.file)
+        img = ImageOps.exif_transpose(img)
+        if img.width > max_width:
+            ratio = max_width / float(img.width)
+            new_height = int(float(img.height) * float(ratio))
+            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        
+        if ext in [".jpg", ".jpeg"]:
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(target_path, "JPEG", quality=85, optimize=True)
+        elif ext == ".png":
+            img.save(target_path, "PNG", optimize=True)
+        elif ext == ".webp":
+            img.save(target_path, "WEBP", quality=85)
+        else:
+            upload_file.file.seek(0)
+            with open(target_path, "wb") as buffer:
+                shutil.copyfileobj(upload_file.file, buffer)
+    except Exception:
+        upload_file.file.seek(0)
+        with open(target_path, "wb") as buffer:
+            shutil.copyfileobj(upload_file.file, buffer)
+
 @app.post("/api/admin/upload-question-image")
 async def upload_question_image(
     request: Request,
@@ -313,8 +345,7 @@ async def upload_question_image(
     safe_filename = f"diagram_q{q_no}_{uuid.uuid4().hex[:8]}{ext}"
     target_path = os.path.join(QUESTION_IMAGES_DIR, safe_filename)
 
-    with open(target_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    optimize_and_save_uploaded_image(file, target_path)
 
     image_url = f"/static/uploads/questions/{safe_filename}"
     success = TestManager.attach_question_image(q_no, image_url)
@@ -450,8 +481,7 @@ async def upload_option_image(
     safe_filename = f"opt_{opt_key.lower()}_q{q_no}_{uuid.uuid4().hex[:8]}{ext}"
     target_path = os.path.join(QUESTION_IMAGES_DIR, safe_filename)
 
-    with open(target_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    optimize_and_save_uploaded_image(file, target_path)
 
     image_url = f"/static/uploads/questions/{safe_filename}"
     success = TestManager.attach_option_image(q_no, opt_key, image_url)
