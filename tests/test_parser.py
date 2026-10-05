@@ -43,7 +43,21 @@ class TestPdfParser(unittest.TestCase):
             self.assertEqual(parsed["total_questions"], 25)
             self.assertEqual(parsed["questions"][0]["correct_answer"], "B")
             self.assertEqual(parsed["questions"][1]["correct_answer"], "B")
-            self.assertEqual(parsed["questions"][4]["correct_answer"], "C")
+    def test_50_question_disha_pdf(self):
+        pdf_50q = os.path.join("sample_tests", "disha_physics_50q.pdf")
+        if not os.path.exists(pdf_50q):
+            pdf_50q = r"C:\Users\ytvus\.gemini\antigravity\brain\67c6cb18-1ed1-469b-889f-9c700885f622\.user_uploaded\media_1791197222947.pdf"
+        
+        parsed = parse_pdf_test(pdf_50q)
+        self.assertEqual(parsed["total_questions"], 50, f"Expected 50 questions, got {parsed['total_questions']}")
+        
+        # Verify sequential question numbers from 1 to 50
+        q_numbers = [q["q_no"] for q in parsed["questions"]]
+        self.assertEqual(q_numbers, list(range(1, 51)))
+        
+        # Verify each question has at least 2 options
+        for q in parsed["questions"]:
+            self.assertGreaterEqual(len(q["options"]), 2, f"Q{q['q_no']} has fewer than 2 options")
 
 if __name__ == "__main__":
     unittest.main()

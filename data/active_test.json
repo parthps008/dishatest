@@ -1,96 +1,94 @@
 {
-  "title": "Java Programming Assessment - Part 2",
+  "title": "DISHA ACADEMY, VITA",
   "subjects": [
-    "Java"
+    "Physics"
   ],
-  "duration_minutes": 30,
-  "total_questions": 10,
+  "duration_minutes": 60,
+  "total_questions": 50,
   "questions": [
     {
       "id": 1,
       "q_no": 1,
-      "text": "Which of the following is considered a marker interface in Java?",
+      "text": "The average velocity of a particle performing S.H.M. in one complete vibration is (A = amplitude of S.H.M., 𝜔 = angular velocity) 𝐴𝜔 𝐴𝜔2",
       "options": [
         {
           "key": "A",
-          "text": "java.io.Serializable"
+          "text": "Zero"
         },
         {
           "key": "B",
-          "text": "java.lang.Runnable"
+          "text": "𝐴𝜔"
         },
         {
           "key": "C",
-          "text": "java.lang.Comparable"
+          "text": "Option C"
         },
         {
           "key": "D",
-          "text": "java.util.concurrent.Callable"
+          "text": "2 2"
         }
       ],
       "correct_answer": "A",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
-      "explanation": null,
-      "image_url": null
+      "explanation": null
     },
     {
       "id": 2,
       "q_no": 2,
-      "text": "What is the size of the char data type in Java?",
+      "text": "When the potential energy of a particle 𝑡ℎ 1 executing S.H.M. is ( ) of its maximum value 4 during the oscillation, its displacement from the equilibrium in terms of its amplitude 𝐴 𝐴 𝐴 2𝐴",
       "options": [
         {
           "key": "A",
-          "text": "8 bits"
+          "text": "Option A"
         },
         {
           "key": "B",
-          "text": "16 bits"
+          "text": "Option B"
         },
         {
           "key": "C",
-          "text": "32 bits"
+          "text": "Option C"
         },
         {
           "key": "D",
-          "text": "64 bits"
+          "text": "4 3 2 3"
         }
       ],
-      "correct_answer": "B",
+      "correct_answer": "A",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
-      "explanation": null,
-      "image_url": null
+      "explanation": null
     },
     {
       "id": 3,
       "q_no": 3,
-      "text": "Which method is used to begin the execution of a thread?",
+      "text": "If the maximum velocity of a particle performing S.H.M. is 'V', then the average velocity during its motion form one extreme position to the other, will be 2 𝜋 4 𝜋",
       "options": [
         {
           "key": "A",
-          "text": "run()"
+          "text": "𝑉"
         },
         {
           "key": "B",
-          "text": "start()"
+          "text": "𝑉"
         },
         {
           "key": "C",
-          "text": "init()"
+          "text": "𝑉"
         },
         {
           "key": "D",
-          "text": "execute()"
+          "text": "𝜋 2 𝜋 4"
         }
       ],
-      "correct_answer": "B",
+      "correct_answer": "D",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -98,28 +96,28 @@
     {
       "id": 4,
       "q_no": 4,
-      "text": "Which block is always executed regardless of whether an exception is thrown or caught?",
+      "text": "A particle starting from extreme position performs S.H.M. The phase difference of the particle between any two successive mean positions is",
       "options": [
         {
           "key": "A",
-          "text": "try"
+          "text": "𝜋𝑐"
         },
         {
           "key": "B",
-          "text": "catch"
+          "text": "𝜋𝑐"
         },
         {
           "key": "C",
-          "text": "finally"
+          "text": "𝜋𝑐"
         },
         {
           "key": "D",
-          "text": "throw"
+          "text": "2𝜋𝑐 4 2"
         }
       ],
-      "correct_answer": "C",
+      "correct_answer": "A",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -127,28 +125,28 @@
     {
       "id": 5,
       "q_no": 5,
-      "text": "Which of the following is NOT a valid identifier (variable name) in Java?",
+      "text": "From the ceiling of a train, a pendulum of length 'L' is suspended. The train is moving with an acceleration ao on horizontal surface. The period of oscillation of the pendulum is (g- acceleration due to gravity) 𝐿 𝐿",
       "options": [
         {
           "key": "A",
-          "text": "_myVariable"
+          "text": "𝑇 = 2𝜋√"
         },
         {
           "key": "B",
-          "text": "$myVariable"
+          "text": "𝑇 = 𝜋√ 8 𝑎2+𝑔2 0 𝐿 𝐿"
         },
         {
           "key": "C",
-          "text": "123myVariable"
+          "text": "𝑇 = 2𝜋√"
         },
         {
           "key": "D",
-          "text": "myVariable123"
+          "text": "𝑇 = 2𝜋√ 𝑎 02+𝑔2 𝑎0"
         }
       ],
-      "correct_answer": "C",
+      "correct_answer": "A",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -156,28 +154,28 @@
     {
       "id": 6,
       "q_no": 6,
-      "text": "Which class from the Java Collections Framework provides a resizable array implementation?",
+      "text": "Two simple harmonic motions are represented by the equations 𝜋 𝑦 = 0.1sin(100 𝜋𝑡+ )𝑎𝑛𝑑 𝑦 = 0.1 𝑐𝑜𝑠𝜋𝑡. 𝐴 3 𝐵 At t = 0 the phase difference of the velocity of particle 'A' with respect to that of particle 'B' is 𝜋 𝜋 𝜋 𝜋",
       "options": [
         {
           "key": "A",
-          "text": "ArrayList"
+          "text": "−"
         },
         {
           "key": "B",
-          "text": "LinkedList"
+          "text": "Option B"
         },
         {
           "key": "C",
-          "text": "HashSet"
+          "text": "−"
         },
         {
           "key": "D",
-          "text": "TreeSet"
+          "text": "6 3 3 6"
         }
       ],
-      "correct_answer": "A",
+      "correct_answer": "C",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -185,28 +183,28 @@
     {
       "id": 7,
       "q_no": 7,
-      "text": "If no access modifier is specified for a class member, what is its default visibility?",
+      "text": "A particle performs S.H.M. with amplitude 'A'. 𝑟𝑑 1 The speed of the particle is ( ) the maximum 3 speed when its displacement from the mean position is 𝐴 √2𝐴 2√2𝐴 2𝐴",
       "options": [
         {
           "key": "A",
-          "text": "public"
+          "text": "Option A"
         },
         {
           "key": "B",
-          "text": "private"
+          "text": "Option B"
         },
         {
           "key": "C",
-          "text": "protected"
+          "text": "Option C"
         },
         {
           "key": "D",
-          "text": "package-private"
+          "text": "3 3 3 3"
         }
       ],
-      "correct_answer": "D",
+      "correct_answer": "A",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -214,28 +212,28 @@
     {
       "id": 8,
       "q_no": 8,
-      "text": "Which of the following is NOT an Object-Oriented Programming (OOP) principle?",
+      "text": "Two particles 'A' and 'B' execute SHMs of 3𝑇 periods 'T' and . If they start from the mean 2 position then the phase difference between them, when the particle 'A' completes two oscillations will be 𝜋 𝜋 4𝜋 𝜋",
       "options": [
         {
           "key": "A",
-          "text": "Polymorphism"
+          "text": "Option A"
         },
         {
           "key": "B",
-          "text": "Inheritance"
+          "text": "Option B"
         },
         {
           "key": "C",
-          "text": "Compilation"
+          "text": "Option C"
         },
         {
           "key": "D",
-          "text": "Encapsulation"
+          "text": "3 6 3 4"
         }
       ],
       "correct_answer": "C",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -243,28 +241,28 @@
     {
       "id": 9,
       "q_no": 9,
-      "text": "Which design pattern restricts the instantiation of a class to exactly one object?",
+      "text": "The displacement of particle in S.H.M. is 𝑥 = 𝐴𝑐𝑜𝑠 (𝜔𝑡 + 𝜋/6 ) Its speed will be maximum at time (sin 900=1) 𝜋 𝜋 𝜋 𝜋",
       "options": [
         {
           "key": "A",
-          "text": "Factory"
+          "text": "𝑠"
         },
         {
           "key": "B",
-          "text": "Singleton"
+          "text": "𝑠"
         },
         {
           "key": "C",
-          "text": "Builder"
+          "text": "𝑠"
         },
         {
           "key": "D",
-          "text": "Observer"
+          "text": "𝑠 3𝜔 2𝜔 𝜔 4𝜔"
         }
       ],
       "correct_answer": "B",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
@@ -272,34 +270,1194 @@
     {
       "id": 10,
       "q_no": 10,
-      "text": "Which keyword is used to allocate memory for a new object in Java?",
+      "text": "The time period of a simple pendulum inside a stationary lift is √3 second. When the lift moves upwards with an acceleration g/3, the time period will be ( g = acceleration due to gravity)",
       "options": [
         {
           "key": "A",
-          "text": "new"
+          "text": "1.5 s"
         },
         {
           "key": "B",
-          "text": "malloc"
+          "text": "2 s"
         },
         {
           "key": "C",
-          "text": "alloc"
+          "text": "√3 𝑠"
         },
         {
           "key": "D",
-          "text": "create"
+          "text": "3 s"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 11,
+      "q_no": 11,
+      "text": "The kinetic energy of a body performing S.H.M. is 25J, when it is at its mean position. If the amplitude of oscillation is 20 cm and mass of the body is 6.25 kg, then period of oscillation is 𝜋 𝜋 𝜋",
+      "options": [
+        {
+          "key": "A",
+          "text": "𝜋𝑠"
+        },
+        {
+          "key": "B",
+          "text": "𝑠"
+        },
+        {
+          "key": "C",
+          "text": "𝑠"
+        },
+        {
+          "key": "D",
+          "text": "𝑠 2√2 5√2 10√2"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 12,
+      "q_no": 12,
+      "text": "In a pipe closed at one end, air column is vibrating in the fourth overtone, so the vibrating air column has",
+      "options": [
+        {
+          "key": "A",
+          "text": "5 nodes and 4 antinodes"
+        },
+        {
+          "key": "B",
+          "text": "4 nodes and 5 antinodes"
+        },
+        {
+          "key": "C",
+          "text": "4 nodes and 4 antinodes"
+        },
+        {
+          "key": "D",
+          "text": "5 nodes and 5 antinodes"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 13,
+      "q_no": 13,
+      "text": "For a stationary wave, 𝜋𝑥 𝑌 = 10sin( )cos (48𝜋)cm, the distance 15 between a node and the successive antinode is",
+      "options": [
+        {
+          "key": "A",
+          "text": "7.5 cm"
+        },
+        {
+          "key": "B",
+          "text": "15 cm"
+        },
+        {
+          "key": "C",
+          "text": "30 cm"
+        },
+        {
+          "key": "D",
+          "text": "60 cm"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 14,
+      "q_no": 14,
+      "text": "A uniform wire of length 'L', diameter 'D' and density 'p' is stretched by a tension 'T'. The correct relation between its fundamental frequency of vibration 'f', the length 'L' and the diameter 'D' is 1 1 1 1",
+      "options": [
+        {
+          "key": "A",
+          "text": "𝑓 ∝"
+        },
+        {
+          "key": "B",
+          "text": "𝑓 ∝"
+        },
+        {
+          "key": "C",
+          "text": "𝑓 ∝"
+        },
+        {
+          "key": "D",
+          "text": "𝑓 ∝ 𝐿√𝐷 𝐷 𝐿𝐷2 𝐿𝐷"
         }
       ],
       "correct_answer": "A",
       "answer_auto_detected": true,
-      "subject": "Java",
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 15,
+      "q_no": 15,
+      "text": "A pipe open at both ends and a pipe closed at one end have same length. The ratio of frequencies of air columns in their Pth overtone respectively is 𝑃 + 1 𝑃 2(𝑃 + 1) 𝑃 + 1",
+      "options": [
+        {
+          "key": "A",
+          "text": "Option A"
+        },
+        {
+          "key": "B",
+          "text": "Option B"
+        },
+        {
+          "key": "C",
+          "text": "Option C"
+        },
+        {
+          "key": "D",
+          "text": "2𝑃 2𝑃 + 1 2𝑃 + 1 2𝑃 + 1"
+        }
+      ],
+      "correct_answer": "B",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 16,
+      "q_no": 16,
+      "text": "On closing an open organ pipe from one end, it is noticed that the frequency of third harmonic is 50 Hz more than the fundamental frequency of vibration in open organ pipe. The fundamental frequency of open organ pipe is",
+      "options": [
+        {
+          "key": "A",
+          "text": "50 Hz"
+        },
+        {
+          "key": "B",
+          "text": "250 Hz"
+        },
+        {
+          "key": "C",
+          "text": "200 Hz"
+        },
+        {
+          "key": "D",
+          "text": "100 Hz"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 17,
+      "q_no": 17,
+      "text": "An organ pipe P closed at one end has vibrating air column in its first overtone and another pipe P2 open at both ends has vibrating air column in the third overtone, which are in resonance with a given tuning fork. The ratio of the length of pipe P 1 to that of P is 2",
+      "options": [
+        {
+          "key": "A",
+          "text": "1:2"
+        },
+        {
+          "key": "B",
+          "text": "5:8"
+        },
+        {
+          "key": "C",
+          "text": "1:8"
+        },
+        {
+          "key": "D",
+          "text": "3:8"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 18,
+      "q_no": 18,
+      "text": "The fundamental frequency of a wire stretched by 2 kgwt is 100 Hz. The weight required to produce its octave is,",
+      "options": [
+        {
+          "key": "A",
+          "text": "12 kgwt"
+        },
+        {
+          "key": "B",
+          "text": "8 kgwt"
+        },
+        {
+          "key": "C",
+          "text": "4 kgwt"
+        },
+        {
+          "key": "D",
+          "text": "16 kgwt"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 19,
+      "q_no": 19,
+      "text": "In a resonance tube open at one end, the end correction is 1 cm. For the first resonance the length of pipe is 15 cm for the tuning fork. Then for the second resonance with the same tuning fork the length of the pipe will be",
+      "options": [
+        {
+          "key": "A",
+          "text": "40 cm"
+        },
+        {
+          "key": "B",
+          "text": "35 cm"
+        },
+        {
+          "key": "C",
+          "text": "64 cm"
+        },
+        {
+          "key": "D",
+          "text": "47 cm"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 20,
+      "q_no": 20,
+      "text": "The lengths of two organ pipes open at both ends are L and (L + d) If they are sounded together, then the beat frequency will be (Neglect end correction) [V velocity of sound in air, d is the internal diameter of the pipe] 2𝐿(𝐿 + 𝑑) 2𝑉𝐷",
+      "options": [
+        {
+          "key": "A",
+          "text": "Option A"
+        },
+        {
+          "key": "B",
+          "text": "𝑉𝑑 𝐿(𝐿 + 𝑑) 𝑉𝑑 𝑉𝑑"
+        },
+        {
+          "key": "C",
+          "text": "Option C"
+        },
+        {
+          "key": "D",
+          "text": "21) 𝐿(𝐿 + 𝑑) 2𝐿(𝐿 + 𝑑)"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 21,
+      "q_no": 21,
+      "text": "A pipe closed at one end has length 85 cm. The number of possible natural oscillations of air column whose frequencies lie below 1.2 kHz are [Take, velocity of sound in air = 340 m/s]",
+      "options": [
+        {
+          "key": "A",
+          "text": "5"
+        },
+        {
+          "key": "B",
+          "text": "4"
+        },
+        {
+          "key": "C",
+          "text": "7"
+        },
+        {
+          "key": "D",
+          "text": "6"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 22,
+      "q_no": 22,
+      "text": "A resonance tube closed at one end is of height 1.5 m. A tuning fork of frequency 340 Hz is vibrating near the open end of the tube. Water is poured in the tube gradually. The minimum height of water column for which resonance is obtained is (neglect end correction, speed of sound in air = 340 m/s)",
+      "options": [
+        {
+          "key": "A",
+          "text": "75 cm"
+        },
+        {
+          "key": "B",
+          "text": "100 cm"
+        },
+        {
+          "key": "C",
+          "text": "25 cm"
+        },
+        {
+          "key": "D",
+          "text": "50 cm"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 23,
+      "q_no": 23,
+      "text": "A set of 28 tuning forks is arranged in an increasing order of frequencies. Each fork produces 'x' beats per second with the preceding fork and the last fork is an octave of the first. If the frequency of the 10th fork is 144 Hz, the value of 'x' is",
+      "options": [
+        {
+          "key": "A",
+          "text": "2"
+        },
+        {
+          "key": "B",
+          "text": "6"
+        },
+        {
+          "key": "C",
+          "text": "4"
+        },
+        {
+          "key": "D",
+          "text": "8"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 24,
+      "q_no": 24,
+      "text": "In Young's double slit experiment, at two points P and Q on screen, waves from slits si and 𝜆 s have a path difference of 0 and respectively. 2 4 The ratio of intensities at point P to that at Q will 1 be ( cos 0° = 1, cos 45° = ) √2",
+      "options": [
+        {
+          "key": "A",
+          "text": "3:2"
+        },
+        {
+          "key": "B",
+          "text": "2:1"
+        },
+        {
+          "key": "C",
+          "text": "√2:1"
+        },
+        {
+          "key": "D",
+          "text": "4:1"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 25,
+      "q_no": 25,
+      "text": "In young's double slit experiment, the light of wavelength '𝛌' is used. The intensity at a point on 𝜆 the screen is 'I' where the path difference is . If 4 'Io' denotes the maximum 4 intensity then the ratio of 'Io' to 'I' is (cos 45° = 1/√2 )",
+      "options": [
+        {
+          "key": "A",
+          "text": "2:1"
+        },
+        {
+          "key": "B",
+          "text": "4:1"
+        },
+        {
+          "key": "C",
+          "text": "8:1"
+        },
+        {
+          "key": "D",
+          "text": "12:1"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 26,
+      "q_no": 26,
+      "text": "The ratio of the distance of nth bright band and mth dark band from the central bright band in an interference pattern is 1 1",
+      "options": [
+        {
+          "key": "A",
+          "text": "n:m"
+        },
+        {
+          "key": "B",
+          "text": "m:n"
+        },
+        {
+          "key": "C",
+          "text": "𝑛:(𝑚− )"
+        },
+        {
+          "key": "D",
+          "text": "(𝑛− ):𝑚 2 2"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 27,
+      "q_no": 27,
+      "text": "In a single slit diffraction pattern, the distance between the plane of the slit and screen 1.3 m. The width of the slit is 0.65 mm and the second maximum is formed at the distance of 2.6 mm from the centre of the screen. The wavelength of light used is",
+      "options": [
+        {
+          "key": "A",
+          "text": "6500 Å"
+        },
+        {
+          "key": "B",
+          "text": "6000 !Å"
+        },
+        {
+          "key": "C",
+          "text": "5200 !Å"
+        },
+        {
+          "key": "D",
+          "text": "4600 !Å!"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 28,
+      "q_no": 28,
+      "text": "In Young's double slit interference experiment, using two coherent sources of different amplitudes, the intensity ratio between bright to dark fringes is 5: 1. The value of the ratio of resultant amplitudes of bright fringe to dark fringe is √5+1 √5−1",
+      "options": [
+        {
+          "key": "A",
+          "text": "( )"
+        },
+        {
+          "key": "B",
+          "text": "√5:1"
+        },
+        {
+          "key": "C",
+          "text": "( )"
+        },
+        {
+          "key": "D",
+          "text": "1: √5 √5−1 √5+1"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 29,
+      "q_no": 29,
+      "text": "In Young's double slit experiment the distance between two slits is 'd' and an interference pattern is observed on a screen placed at a distance 'D' from the slits. If the first dark fringe is observed at a point directly opposite to one of the slits, the wavelength of the wave 𝛌 will be 𝐷 2𝑑2 𝑑2 𝑑2",
+      "options": [
+        {
+          "key": "A",
+          "text": "Option A"
+        },
+        {
+          "key": "B",
+          "text": "Option B"
+        },
+        {
+          "key": "C",
+          "text": "Option C"
+        },
+        {
+          "key": "D",
+          "text": "𝑑2 𝐷 𝐷 2𝐷"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 30,
+      "q_no": 30,
+      "text": "In a single slit diffraction experiment, slit of width 'a' and incident light of wavelength 5600 Å, the first minimum is observed at angle 30°. The first secondary maximum is observed at angle (sin 300 = 0.5)",
+      "options": [
+        {
+          "key": "A",
+          "text": "𝑠𝑖𝑛−1(1 )"
+        },
+        {
+          "key": "B",
+          "text": "𝑠𝑖𝑛−1(1 ) √2 2"
+        },
+        {
+          "key": "C",
+          "text": "𝑠𝑖𝑛−1(√3 )"
+        },
+        {
+          "key": "D",
+          "text": "𝑠𝑖𝑛−1(3 ) 2 4"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 31,
+      "q_no": 31,
+      "text": "Unpolarised light of intensity Io is incident on polaroid P . Another polaroid P is placed such that 1 2 the axes of polaroids P and P are perpendicular 1 2 to each other. A third polaroid P is kept in 3 between P and P so that its axis makes an angle 1 2 of 450 with that of P The intensity of transmitted 1 light through P is (cos 45° = 1/√2) 2",
+      "options": [
+        {
+          "key": "A",
+          "text": "𝐼0"
+        },
+        {
+          "key": "B",
+          "text": "𝐼0"
+        },
+        {
+          "key": "C",
+          "text": "𝐼0"
+        },
+        {
+          "key": "D",
+          "text": "𝐼0 16 8 4 2"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 32,
+      "q_no": 32,
+      "text": "In biprism experiment the maximum intensity is 'Io'. If the path difference between the two interfering waves is '𝛌/4’ then intensity at the point on the screen is [ sin 45° = cos 45° = 1/√2]",
+      "options": [
+        {
+          "key": "A",
+          "text": "𝐼0"
+        },
+        {
+          "key": "B",
+          "text": "𝐼0"
+        },
+        {
+          "key": "C",
+          "text": "𝐼0"
+        },
+        {
+          "key": "D",
+          "text": "𝐼 0 4 3 2"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 33,
+      "q_no": 33,
+      "text": "When a plane polarised light is passed through an analyser and analyser is rotated through 90 the intensity of the emerging light",
+      "options": [
+        {
+          "key": "A",
+          "text": "varies between minimum. a maximum and"
+        },
+        {
+          "key": "B",
+          "text": "becomes zero."
+        },
+        {
+          "key": "C",
+          "text": "does not vary."
+        },
+        {
+          "key": "D",
+          "text": "varies between a maximum and zero."
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 34,
+      "q_no": 34,
+      "text": "Two beams, A and B, of plane polarised light with mutually perpendicular planes of polarisation are seen through a polaroid. From the position when the beam A has maximum intensity (and beam B has zero intensity), a rotation of polaroid through 30° makes the two beams appear equally bright. If the initial intensities of the two beams are I and I respectively, then𝐼𝐴 equals A B 𝐼𝐵 3 1",
+      "options": [
+        {
+          "key": "A",
+          "text": "3"
+        },
+        {
+          "key": "B",
+          "text": "Option B"
+        },
+        {
+          "key": "C",
+          "text": "1"
+        },
+        {
+          "key": "D",
+          "text": "2 3"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 35,
+      "q_no": 35,
+      "text": "In the Young's double slit experiment, if the phase difference between the two waves interfering at a point is, the intensity at that point is proportional to",
+      "options": [
+        {
+          "key": "A",
+          "text": "|2𝐸 𝑐𝑜𝑠ᶲ |"
+        },
+        {
+          "key": "B",
+          "text": "|2𝐸 𝑐𝑜𝑠ᶲ |2 0 0 2 2 ᶲ"
+        },
+        {
+          "key": "C",
+          "text": "|𝐸 𝑐𝑜𝑠 |"
+        },
+        {
+          "key": "D",
+          "text": "𝐸 𝑐𝑜𝑠 ᶲ 0 0 2"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 36,
+      "q_no": 36,
+      "text": "In Young's double slit experiment, if the width of 4 th bright fringe 𝑖𝑠 2 × 102 cm, then the width of 6 th bright fringe will be …….cm.",
+      "options": [
+        {
+          "key": "A",
+          "text": "102"
+        },
+        {
+          "key": "B",
+          "text": "3× 10−2"
+        },
+        {
+          "key": "C",
+          "text": "2 × 102"
+        },
+        {
+          "key": "D",
+          "text": "1.5× 10−2"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 37,
+      "q_no": 37,
+      "text": "Two slits in Young's experiment have widths in the ratio 1: 25. The ratio of intensity at the maxima and minima in the interference pattern, 29.I max is: I min 4 9 121 49",
+      "options": [
+        {
+          "key": "A",
+          "text": "Option A"
+        },
+        {
+          "key": "B",
+          "text": "Option B"
+        },
+        {
+          "key": "C",
+          "text": "Option C"
+        },
+        {
+          "key": "D",
+          "text": "9 4 49 121"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 38,
+      "q_no": 38,
+      "text": "In Young's double slit experiment, 62 bright fringes are seen in visible region for sodium light of wavelength 5893 Å. If violet light of wavelength 4358 Å is used in place of sodium light, then number of bright fringes seen will be",
+      "options": [
+        {
+          "key": "A",
+          "text": "54"
+        },
+        {
+          "key": "B",
+          "text": "64"
+        },
+        {
+          "key": "C",
+          "text": "740"
+        },
+        {
+          "key": "D",
+          "text": "84"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 39,
+      "q_no": 39,
+      "text": "A plane wavefront of wavelength 𝛌 is incident on a slit of width",
+      "options": [
+        {
+          "key": "A",
+          "text": "The angular width of principal maximum is 𝜆 2𝜆 𝑎 𝑎 A)"
+        },
+        {
+          "key": "B",
+          "text": "Option B"
+        },
+        {
+          "key": "C",
+          "text": "Option C"
+        },
+        {
+          "key": "D",
+          "text": "𝑎 𝑎 𝜆 2𝜆"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 40,
+      "q_no": 40,
+      "text": "Angular width of the central maxima in the Fraunhofer diffraction for𝛌= 6000 Å is θο. When the same slit is illuminated by another monochromatic light, the angular width decreases by 30%. The wavelength of this light is",
+      "options": [
+        {
+          "key": "A",
+          "text": "420 Å"
+        },
+        {
+          "key": "B",
+          "text": "1800 Å"
+        },
+        {
+          "key": "C",
+          "text": "4200 Å"
+        },
+        {
+          "key": "D",
+          "text": "6000 A"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 41,
+      "q_no": 41,
+      "text": "The displacement of a particle along the X-axis is given by x =a sin2 𝜔𝑡. The motion of the particle corresponds to",
+      "options": [
+        {
+          "key": "A",
+          "text": "simple harmonic motion of frequency 𝜔/2𝜋"
+        },
+        {
+          "key": "B",
+          "text": "simple harmonic motion of frequency 𝜔/𝜋"
+        },
+        {
+          "key": "C",
+          "text": "simple harmonic motion of frequency 3ω/2π."
+        },
+        {
+          "key": "D",
+          "text": "non simple harmonic motion."
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 42,
+      "q_no": 42,
+      "text": "The displacement of a particle performing S.H.M is x = A sin(𝜔𝑡+𝛼) The quantity a is called",
+      "options": [
+        {
+          "key": "A",
+          "text": "phase constant"
+        },
+        {
+          "key": "B",
+          "text": "epoch"
+        },
+        {
+          "key": "C",
+          "text": "initial phase"
+        },
+        {
+          "key": "D",
+          "text": "all of these"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 43,
+      "q_no": 43,
+      "text": "A particle executing S.H.M. starts from the mean position. Its phase, when it reaches the extreme position, is 𝜋 3𝜋",
+      "options": [
+        {
+          "key": "A",
+          "text": "Option A"
+        },
+        {
+          "key": "B",
+          "text": "π"
+        },
+        {
+          "key": "C",
+          "text": "Option C"
+        },
+        {
+          "key": "D",
+          "text": "2 π 2 2"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 44,
+      "q_no": 44,
+      "text": "Maximum kinetic energy of a particle suspended from a spring in oscillating state is 5 joule and amplitude is 10 cm. The force constant of the spring will be",
+      "options": [
+        {
+          "key": "A",
+          "text": "100 N/m"
+        },
+        {
+          "key": "B",
+          "text": "10 N/m"
+        },
+        {
+          "key": "C",
+          "text": "1000 N/m"
+        },
+        {
+          "key": "D",
+          "text": "500 N/m"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 45,
+      "q_no": 45,
+      "text": "If a simple pendulum oscillates with an amplitude of 50 mm and time period of 2 s, then its maximum velocity is",
+      "options": [
+        {
+          "key": "A",
+          "text": "0.10 m/s"
+        },
+        {
+          "key": "B",
+          "text": "0.16 m/s"
+        },
+        {
+          "key": "C",
+          "text": "0.8 m/s"
+        },
+        {
+          "key": "D",
+          "text": "0.26 m/s"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 46,
+      "q_no": 46,
+      "text": "Two identical straight wires are stretched so as to produce 6 beats per second when vibrating simultaneously. On changing the tension in one of them, the beat frequency remains unchanged. Denoting by T ,T , the higher and the lower initial 1 2 tensions in the strings, then it could be said that while making the above change in tension,",
+      "options": [
+        {
+          "key": "A",
+          "text": "T was decreased. 2"
+        },
+        {
+          "key": "B",
+          "text": "T was increased. 2"
+        },
+        {
+          "key": "C",
+          "text": "T₁ was increased."
+        },
+        {
+          "key": "D",
+          "text": "T was kept constant. 1"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": false,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 47,
+      "q_no": 47,
+      "text": "Two identical wires have the same fundamental frequency of 400 Hz when kept under the same tension. If the tension in one wire is increased by 2%, the number of beats produced will be",
+      "options": [
+        {
+          "key": "A",
+          "text": "4"
+        },
+        {
+          "key": "B",
+          "text": "2"
+        },
+        {
+          "key": "C",
+          "text": "8"
+        },
+        {
+          "key": "D",
+          "text": "1"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 48,
+      "q_no": 48,
+      "text": "A sonometer wire with a suspended mass of M = 1 kg is in resonance with a given tuning fork. The apparatus is taken to the moon where the acceleration due to gravity is 1/6th that on earth. To obtain resonance on the moon, the value of M should be",
+      "options": [
+        {
+          "key": "A",
+          "text": "1 kg"
+        },
+        {
+          "key": "B",
+          "text": "√6 kg"
+        },
+        {
+          "key": "C",
+          "text": "6 kg"
+        },
+        {
+          "key": "D",
+          "text": "36 kg"
+        }
+      ],
+      "correct_answer": "A",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 49,
+      "q_no": 49,
+      "text": "The tension in a piano wire is 10 N. What should be the tension in the wire to produce a note of double the frequency?",
+      "options": [
+        {
+          "key": "A",
+          "text": "5 N"
+        },
+        {
+          "key": "B",
+          "text": "20 N"
+        },
+        {
+          "key": "C",
+          "text": "40 N"
+        },
+        {
+          "key": "D",
+          "text": "80 N"
+        }
+      ],
+      "correct_answer": "D",
+      "answer_auto_detected": true,
+      "subject": "Physics",
+      "marks": 1,
+      "negative_marks": 0.0,
+      "explanation": null
+    },
+    {
+      "id": 50,
+      "q_no": 50,
+      "text": "A source of sound is at one end of hollow tube. An observer at other end hears two distinct notes after a time interval of 1 s. If velocity of sound in air is 340 m/s and in metal is 3740 m/s, then length of pipe is",
+      "options": [
+        {
+          "key": "A",
+          "text": "374 m"
+        },
+        {
+          "key": "B",
+          "text": "324 m"
+        },
+        {
+          "key": "C",
+          "text": "340 m"
+        },
+        {
+          "key": "D",
+          "text": "347 km"
+        }
+      ],
+      "correct_answer": "C",
+      "answer_auto_detected": true,
+      "subject": "Physics",
       "marks": 1,
       "negative_marks": 0.0,
       "explanation": null
     }
   ],
-  "pdf_filename": "java_assessment_part2.pdf",
-  "id": "test_b79c58ec",
-  "created_at": "2026-10-05 06:45:01"
+  "pdf_filename": "DISHA_PHYSICS_50Q.pdf",
+  "id": "test_5a746840",
+  "created_at": "2026-10-05 07:01:50"
 }

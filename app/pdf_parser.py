@@ -12,22 +12,91 @@ KNOWN_SUBJECTS = [
     "JAVA", "PROGRAMMING", "DATA STRUCTURES", "INFORMATION TECHNOLOGY"
 ]
 
+def is_two_column_page(page) -> bool:
+    """
+    Detect whether a PDF page uses a two-column layout.
+    Checks word distribution to see if words are concentrated on left/right
+    with very few words crossing the vertical middle.
+    """
+    w = page.width
+    mid_x = w / 2
+    words = page.extract_words()
+    if len(words) < 30:
+        return False
+
+    header_words = [
+        w for w in words 
+        if w['top'] < 70 and any(t in w['text'].upper() for t in ['DISHA', 'ACADEMY', 'NAME:', 'SUB:', 'MARKS:'])
+    ]
+    header_bottom = max([w['bottom'] for w in header_words]) if header_words else 0
+    body_top = header_bottom + 2 if header_bottom > 0 else 0
+
+    body_words = [w for w in words if w['top'] >= body_top]
+    if not body_words:
+        return False
+
+    crossing = sum(1 for w in body_words if w['x0'] < mid_x - 5 and w['x1'] > mid_x + 5)
+    left_words = sum(1 for w in body_words if w['x1'] <= mid_x)
+    right_words = sum(1 for w in body_words if w['x0'] >= mid_x)
+
+    crossing_ratio = crossing / len(body_words)
+    left_ratio = left_words / len(body_words)
+    right_ratio = right_words / len(body_words)
+
+    # In 2-column layout: almost 0 words cross the middle, and both columns have substantial text
+    return (crossing_ratio < 0.05) and (left_ratio > 0.20) and (right_ratio > 0.20)
+
 def extract_text_from_pdf(pdf_path: str) -> str:
     """
     Extract clean raw text from PDF using pdfplumber with fallback to pypdf.
-    Prefers natural reading order (layout=False) to avoid multi-thousand space padding.
+    Features:
+    - Automatically detects 2-column question papers (e.g. Disha Academy standard 50-Q papers)
+      and crops left column then right column in correct reading order.
+    - Strips empty student answer sheet tables (e.g. '1 11 21 31 41...').
     """
     full_text = []
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
-                text = page.extract_text(layout=False)
-                if not text or len(text.strip()) < 20:
-                    text = page.extract_text()
-                if not text or len(text.strip()) < 20:
-                    text = page.extract_text(layout=True)
-                if text:
-                    cleaned_lines = [re.sub(r'[ \t]+$', '', line) for line in text.splitlines()]
+                w = page.width
+                h = page.height
+                mid_x = w / 2
+
+                words = page.extract_words()
+                if not words:
+                    continue
+
+                if is_two_column_page(page):
+                    # Find header banner
+                    header_words = [
+                        w for w in words 
+                        if w['top'] < 70 and any(t in w['text'].upper() for t in ['DISHA', 'ACADEMY', 'NAME:', 'SUB:', 'MARKS:'])
+                    ]
+                    header_bottom = max([w['bottom'] for w in header_words]) if header_words else 0
+                    body_top = header_bottom + 2 if header_bottom > 0 else 0
+
+                    header_text = ""
+                    if header_bottom > 0:
+                        header_page = page.crop((0, 0, w, header_bottom + 2))
+                        header_text = header_page.extract_text(layout=False) or ""
+
+                    left_page = page.crop((0, body_top, mid_x, h))
+                    left_text = left_page.extract_text(layout=False) or ""
+
+                    right_page = page.crop((mid_x, body_top, w, h))
+                    right_text = right_page.extract_text(layout=False) or ""
+
+                    parts = [p for p in [header_text, left_text, right_text] if p.strip()]
+                    page_content = "\n".join(parts)
+                else:
+                    page_content = page.extract_text(layout=False)
+                    if not page_content or len(page_content.strip()) < 20:
+                        page_content = page.extract_text()
+                    if not page_content or len(page_content.strip()) < 20:
+                        page_content = page.extract_text(layout=True)
+
+                if page_content:
+                    cleaned_lines = [re.sub(r'[ \t]+$', '', line) for line in page_content.splitlines()]
                     full_text.append("\n".join(cleaned_lines))
     except Exception as e:
         print(f"pdfplumber extraction warning: {e}, falling back to pypdf")
@@ -42,7 +111,10 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         except Exception as e:
             print(f"pypdf extraction error: {e}")
 
-    return "\n".join(full_text)
+    raw = "\n".join(full_text)
+    # Strip empty student answer sheet tables (e.g. '1 11 21 31 41\n2 12 22 32 42...')
+    raw = re.sub(r'\n\s*1\s+11\s+21\s+31\s+41[\s\S]*$', '', raw)
+    return raw
 
 def detect_test_meta(text: str, default_filename: str = "") -> Tuple[str, List[str], Optional[int]]:
     """Detect test title, subjects, and duration from PDF text."""
@@ -100,6 +172,7 @@ def extract_table_answers(pdf_path: str) -> Dict[int, str]:
     """
     Extract answers from visual tables (e.g. grid format like Q1-Q5, Q6-Q10).
     Supports horizontal row pairs, vertical columns, multi-column tables, and cell pairs.
+    Ignores empty answer sheet tables.
     """
     answers = {}
     if not pdf_path or not os.path.exists(pdf_path):
@@ -259,6 +332,11 @@ def extract_answer_keys(text: str, pdf_path: Optional[str] = None) -> Dict[int, 
 def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Parse questions, options, subjects, and accurately map answers from extracted text and tables.
+    Features:
+    - Negative lookahead (?!\d) to prevent decimals like '1.5 m' from falsely starting a question.
+    - Sequential question progression verification.
+    - Lookahead regex for option tokens to handle 'A) B) C) D)' cleanly.
+    - Sequential option validation (A -> B -> C -> D) to prevent math variables like '(L + d)' from matching as Option D.
     """
     answer_key_dict = extract_answer_keys(text, pdf_path=pdf_path)
 
@@ -274,7 +352,7 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
     current_option_key = None
 
     q_start_regex = re.compile(
-        r'^\s*(?:Q(?:uestion)?\.?\s*)?(\d+)[\.\)\:\-]\s*(.*)',
+        r'^\s*(?:Q(?:uestion)?\.?\s*)?(\d+)(?:\.|\)|(?:\s*[\:\-]))(?!\d)\s*(.*)',
         re.IGNORECASE
     )
     alt_q_start_regex = re.compile(
@@ -282,9 +360,9 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
         re.IGNORECASE
     )
 
-    # Match option tokens e.g. "(A)", "[A]", "A.", "a.", "A)", "a)", "A:"
+    # Lookahead ensures whitespace after option delimiter is not consumed, allowing adjacent tokens (e.g. A) B) C) D))
     opt_token_regex = re.compile(
-        r'(?:^|\s+)[\(\[]?([A-Da-d])[\)\]\.\:\-]\s*'
+        r'(?:^|\s+)[\(\[]?([A-Da-d])[\)\]\.\:\-](?=\s|$)'
     )
 
     subj_header_regex = re.compile(
@@ -296,6 +374,8 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
         r'(?:Ans(?:wer)?|Correct\s*(?:Option)?|Key)[\s\:\-\=]+[\(\[]?([A-Da-d])[\)\]]?',
         re.IGNORECASE
     )
+
+    EXPECTED_SEQ = ["A", "B", "C", "D"]
 
     def finalize_question(q_dict: Optional[Dict[str, Any]]):
         if not q_dict:
@@ -326,12 +406,25 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
             q_dict["correct_answer"] = "A"
             q_dict["answer_auto_detected"] = False
 
-        if len(q_dict["options"]) >= 2 and len(q_dict["text"]) > 2:
+        opts_dict = {o["key"]: o["text"] for o in q_dict["options"]}
+        sorted_opts = []
+        for key in ["A", "B", "C", "D"]:
+            if key in opts_dict and opts_dict[key].strip():
+                sorted_opts.append({"key": key, "text": opts_dict[key].strip()})
+            else:
+                sorted_opts.append({"key": key, "text": f"Option {key}"})
+        q_dict["options"] = sorted_opts
+
+        if len(q_dict["text"]) > 2:
             questions.append(q_dict)
 
     for line in lines:
         stripped = line.strip()
         if not stripped:
+            continue
+
+        # Skip global header banners
+        if any(h in stripped.upper() for h in ['DISHA ACADEMY', 'SUB: PHYSICS', 'MARKS: 50', 'NAME:']):
             continue
 
         subj_match = subj_header_regex.match(stripped)
@@ -355,8 +448,15 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
         if q_match:
             try:
                 candidate_q_no = int(q_match.group(1))
-                if 0 < candidate_q_no <= 500:
-                    is_new_q = True
+                if 1 <= candidate_q_no <= 500:
+                    if current_q is None:
+                        if candidate_q_no == 1:
+                            is_new_q = True
+                    else:
+                        prev_no = current_q["q_no"]
+                        # Question sequence should advance forward
+                        if candidate_q_no == prev_no + 1 or (prev_no < candidate_q_no <= prev_no + 3):
+                            is_new_q = True
             except ValueError:
                 is_new_q = False
 
@@ -382,42 +482,52 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
 
         if current_q:
             opt_matches = list(opt_token_regex.finditer(line))
-            if opt_matches:
-                for i, m in enumerate(opt_matches):
+            existing_keys = [o["key"] for o in current_q["options"]]
+            next_expected_idx = len(existing_keys)
+
+            # Filter valid matches sequentially (A -> B -> C -> D)
+            valid_matches = []
+            for m in opt_matches:
+                k = m.group(1).upper()
+                if next_expected_idx < len(EXPECTED_SEQ) and k == EXPECTED_SEQ[next_expected_idx]:
+                    valid_matches.append(m)
+                    next_expected_idx += 1
+
+            if valid_matches:
+                # Text preceding the first option on this line belongs to the question (or previous option)
+                pre_text = line[:valid_matches[0].start()].strip()
+                if pre_text:
+                    if not current_q["options"]:
+                        current_q["text"] += " " + pre_text
+                    else:
+                        current_q["options"][-1]["text"] += " " + pre_text
+
+                for i, m in enumerate(valid_matches):
                     opt_key = m.group(1).upper()
                     start_pos = m.end()
-                    end_pos = opt_matches[i+1].start() if i + 1 < len(opt_matches) else len(line)
+                    end_pos = valid_matches[i+1].start() if i + 1 < len(valid_matches) else len(line)
                     opt_val = line[start_pos:end_pos].strip()
+                    current_q["options"].append({"key": opt_key, "text": opt_val})
 
-                    # Check if already exists
-                    existing = next((o for o in current_q["options"] if o["key"] == opt_key), None)
-                    if existing:
-                        existing["text"] += " " + opt_val
-                    else:
-                        current_q["options"].append({"key": opt_key, "text": opt_val})
-                
-                current_option_key = opt_matches[-1].group(1).upper()
+                current_option_key = valid_matches[-1].group(1).upper()
                 continue
 
             # If inside an option, append multiline option text
-            if current_option_key:
-                for o in current_q["options"]:
-                    if o["key"] == current_option_key:
-                        o["text"] += " " + stripped
-                        break
+            if current_q["options"]:
+                current_q["options"][-1]["text"] += " " + stripped
             else:
+                # Append to question text
                 current_q["text"] += " " + stripped
 
     finalize_question(current_q)
 
-    # Normalize question numbers and ensure options A, B, C, D exist
+    # Normalize question IDs
     processed_questions = []
     for idx, q in enumerate(questions):
         orig_q_no = q["q_no"]
         q["id"] = idx + 1
         q["q_no"] = idx + 1
-        
-        # If question was re-indexed and wasn't mapped earlier, check if idx+1 matches
+
         if not q.get("correct_answer_set"):
             if (idx + 1) in answer_key_dict:
                 q["correct_answer"] = answer_key_dict[idx + 1]
@@ -426,15 +536,6 @@ def parse_mcq_questions(text: str, detected_subjects: List[str], pdf_path: Optio
                 q["correct_answer"] = answer_key_dict[orig_q_no]
                 q["answer_auto_detected"] = True
 
-        opts = {o["key"]: o["text"] for o in q["options"]}
-        sorted_opts = []
-        for key in ["A", "B", "C", "D"]:
-            if key in opts and opts[key].strip():
-                sorted_opts.append({"key": key, "text": opts[key].strip()})
-            else:
-                sorted_opts.append({"key": key, "text": f"Option {key}"})
-        q["options"] = sorted_opts
-        
         q.pop("correct_answer_set", None)
         processed_questions.append(q)
 
