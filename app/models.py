@@ -5,6 +5,8 @@ from datetime import datetime
 class Option(BaseModel):
     key: str # "A", "B", "C", "D"
     text: str
+    image_url: Optional[str] = None
+
 
 class Question(BaseModel):
     id: int

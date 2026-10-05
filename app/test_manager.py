@@ -191,6 +191,278 @@ class TestManager:
         return False
 
     @staticmethod
+    def update_question_full(
+        q_no: int,
+        text: str,
+        options: List[Dict[str, Any]],
+        correct_answer: str,
+        subject: Optional[str] = "General",
+        marks: Optional[int] = 1
+    ) -> Optional[Dict[str, Any]]:
+        """Update statement, options, correct answer, subject, marks for a question."""
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return None
+
+        correct_answer = correct_answer.strip().upper()
+        if correct_answer not in ["A", "B", "C", "D"]:
+            return None
+
+        target_q = None
+        for q in active_test["questions"]:
+            if q.get("q_no") == q_no:
+                target_q = q
+                break
+
+        if not target_q:
+            return None
+
+        target_q["text"] = text.strip()
+        target_q["correct_answer"] = correct_answer
+        target_q["answer_auto_detected"] = False
+        if subject:
+            target_q["subject"] = subject.strip()
+        if marks is not None:
+            try:
+                target_q["marks"] = max(1, int(marks))
+            except (ValueError, TypeError):
+                target_q["marks"] = 1
+
+        # Format and preserve/update options
+        existing_opts_by_key = {opt.get("key", "").upper(): opt for opt in target_q.get("options", [])}
+        updated_options = []
+        for i, key in enumerate(["A", "B", "C", "D"]):
+            opt_data = None
+            for o in options:
+                if str(o.get("key", "")).strip().upper() == key:
+                    opt_data = o
+                    break
+            if not opt_data and i < len(options):
+                opt_data = options[i]
+
+            opt_text = opt_data.get("text", "") if opt_data else ""
+            opt_img = opt_data.get("image_url") if opt_data else None
+            # If not specified in opt_data, preserve existing image if any
+            if opt_img is None and key in existing_opts_by_key:
+                opt_img = existing_opts_by_key[key].get("image_url")
+
+            updated_options.append({
+                "key": key,
+                "text": opt_text.strip(),
+                "image_url": opt_img
+            })
+
+        target_q["options"] = updated_options
+
+        # Update test subjects list
+        unique_subjects = list(dict.fromkeys(
+            q.get("subject", "General").strip() 
+            for q in active_test["questions"] 
+            if q.get("subject")
+        ))
+        active_test["subjects"] = unique_subjects or ["General"]
+
+        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+            json.dump(active_test, f, indent=2, ensure_ascii=False)
+
+        return target_q
+
+    @staticmethod
+    def delete_question(q_no: int) -> bool:
+        """
+        Delete a question from the active test.
+        Re-indexes all remaining questions sequentially (1..N) and updates total_questions.
+        """
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return False
+
+        questions = active_test["questions"]
+        idx_to_remove = None
+        for i, q in enumerate(questions):
+            if q.get("q_no") == q_no:
+                idx_to_remove = i
+                break
+
+        if idx_to_remove is None:
+            return False
+
+        # Remove image files from disk if any
+        q_to_remove = questions.pop(idx_to_remove)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Main question image
+        if q_to_remove.get("image_url"):
+            clean_path = q_to_remove["image_url"].lstrip("/")
+            local_file = os.path.join(base_dir, clean_path.replace("/", os.sep))
+            if os.path.exists(local_file):
+                try:
+                    os.remove(local_file)
+                except Exception:
+                    pass
+
+        # Options images
+        for opt in q_to_remove.get("options", []):
+            if opt.get("image_url"):
+                clean_path = opt["image_url"].lstrip("/")
+                local_file = os.path.join(base_dir, clean_path.replace("/", os.sep))
+                if os.path.exists(local_file):
+                    try:
+                        os.remove(local_file)
+                    except Exception:
+                        pass
+
+        # Re-index remaining questions sequentially (1..N)
+        for new_idx, q in enumerate(questions, start=1):
+            q["q_no"] = new_idx
+            q["id"] = new_idx
+
+        active_test["total_questions"] = len(questions)
+
+        # Update subjects list
+        unique_subjects = list(dict.fromkeys(
+            q.get("subject", "General").strip() 
+            for q in questions 
+            if q.get("subject")
+        ))
+        active_test["subjects"] = unique_subjects or ["General"]
+
+        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+            json.dump(active_test, f, indent=2, ensure_ascii=False)
+
+        return True
+
+    @staticmethod
+    def add_question(
+        text: str,
+        options: List[Dict[str, Any]],
+        correct_answer: str,
+        subject: Optional[str] = "General",
+        marks: Optional[int] = 1,
+        image_url: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Add a new question to the active test at the end (q_no = N + 1)."""
+        active_test = TestManager.get_active_test()
+        if not active_test:
+            return None
+
+        if "questions" not in active_test:
+            active_test["questions"] = []
+
+        questions = active_test["questions"]
+        new_q_no = len(questions) + 1
+
+        correct_answer = correct_answer.strip().upper()
+        if correct_answer not in ["A", "B", "C", "D"]:
+            correct_answer = "A"
+
+        norm_options = []
+        for i, key in enumerate(["A", "B", "C", "D"]):
+            opt_data = None
+            for o in options:
+                if str(o.get("key", "")).strip().upper() == key:
+                    opt_data = o
+                    break
+            if not opt_data and i < len(options):
+                opt_data = options[i]
+
+            opt_text = opt_data.get("text", "") if opt_data else ""
+            opt_img = opt_data.get("image_url") if opt_data else None
+            norm_options.append({
+                "key": key,
+                "text": opt_text.strip(),
+                "image_url": opt_img
+            })
+
+        new_question = {
+            "id": new_q_no,
+            "q_no": new_q_no,
+            "text": text.strip(),
+            "options": norm_options,
+            "correct_answer": correct_answer,
+            "answer_auto_detected": False,
+            "image_url": image_url,
+            "subject": subject.strip() if subject else "General",
+            "marks": max(1, int(marks)) if marks else 1,
+            "negative_marks": 0.0,
+            "explanation": None
+        }
+
+        questions.append(new_question)
+        active_test["total_questions"] = len(questions)
+
+        unique_subjects = list(dict.fromkeys(
+            q.get("subject", "General").strip() 
+            for q in questions 
+            if q.get("subject")
+        ))
+        active_test["subjects"] = unique_subjects or ["General"]
+
+        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+            json.dump(active_test, f, indent=2, ensure_ascii=False)
+
+        return new_question
+
+    @staticmethod
+    def attach_option_image(q_no: int, opt_key: str, image_url: str) -> bool:
+        """Attach an image/diagram to a specific option (A, B, C, D) of a question."""
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return False
+
+        opt_key = opt_key.strip().upper()
+        found = False
+        for q in active_test["questions"]:
+            if q.get("q_no") == q_no:
+                for opt in q.get("options", []):
+                    if opt.get("key", "").upper() == opt_key:
+                        opt["image_url"] = image_url
+                        found = True
+                        break
+                break
+
+        if found:
+            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            return True
+        return False
+
+    @staticmethod
+    def remove_option_image(q_no: int, opt_key: str) -> bool:
+        """Remove attached image/diagram from a specific option of a question."""
+        active_test = TestManager.get_active_test()
+        if not active_test or "questions" not in active_test:
+            return False
+
+        opt_key = opt_key.strip().upper()
+        found = False
+        for q in active_test["questions"]:
+            if q.get("q_no") == q_no:
+                for opt in q.get("options", []):
+                    if opt.get("key", "").upper() == opt_key:
+                        old_url = opt.get("image_url")
+                        if old_url:
+                            clean_path = old_url.lstrip("/")
+                            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                            local_file = os.path.join(base_dir, clean_path.replace("/", os.sep))
+                            if os.path.exists(local_file):
+                                try:
+                                    os.remove(local_file)
+                                except Exception:
+                                    pass
+                        opt["image_url"] = None
+                        found = True
+                        break
+                break
+
+        if found:
+            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            return True
+        return False
+
+
+    @staticmethod
     def submit_test(submission: TestSubmissionRequest) -> SubmissionResult:
         """Grade student answers against active test and save submission."""
         active_test = TestManager.get_active_test()

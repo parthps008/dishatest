@@ -130,16 +130,17 @@ function normalizeOptions(rawOptions) {
         return rawOptions.map((opt, i) => {
             if (typeof opt === 'string') {
                 const keys = ['A', 'B', 'C', 'D'];
-                return { key: keys[i] || String(i + 1), text: opt };
+                return { key: keys[i] || String(i + 1), text: opt, image_url: null };
             }
             return {
                 key: opt.key || String.fromCharCode(65 + i),
-                text: opt.text || ''
+                text: opt.text || '',
+                image_url: opt.image_url || null
             };
         });
     }
     if (typeof rawOptions === 'object') {
-        return Object.entries(rawOptions).map(([k, v]) => ({ key: k, text: String(v) }));
+        return Object.entries(rawOptions).map(([k, v]) => ({ key: k, text: String(v), image_url: null }));
     }
     return [];
 }
@@ -197,13 +198,21 @@ function loadQuestion(index) {
         let html = "";
         options.forEach(opt => {
             const isChecked = (selectedOption === opt.key);
+            const optImgHtml = opt.image_url ? `
+                <div style="margin-top: 6px;">
+                    <img src="${opt.image_url}" style="max-height: 120px; max-width: 100%; object-fit: contain; border-radius: 4px; border: 1px solid #cbd5e1; cursor: zoom-in; background: white;" onclick="event.stopPropagation(); openDiagramLightbox('${opt.image_url}')" alt="Option ${opt.key} image">
+                </div>
+            ` : '';
             html += `
                 <label class="cbt-option-item ${isChecked ? 'selected' : ''}" 
                        onclick="selectOptionChoice('${opt.key}', this)">
                     <input type="radio" name="cbt_option" value="${opt.key}" 
                            class="cbt-option-radio" ${isChecked ? 'checked' : ''}>
                     <span class="cbt-option-badge">${opt.key}</span>
-                    <span class="cbt-option-text">${escapeHtml(opt.text)}</span>
+                    <span class="cbt-option-text">
+                        ${escapeHtml(opt.text)}
+                        ${optImgHtml}
+                    </span>
                 </label>
             `;
         });

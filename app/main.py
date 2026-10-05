@@ -1,7 +1,7 @@
 import os
 import shutil
 import uuid
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -345,6 +345,150 @@ async def remove_question_image(request: Request, payload: RemoveQuestionImageRe
         "q_no": payload.q_no,
         "message": f"Diagram removed from Question {payload.q_no}."
     }
+
+class OptionPayload(BaseModel):
+    key: str
+    text: str
+    image_url: Optional[str] = None
+
+class UpdateQuestionFullRequest(BaseModel):
+    q_no: int
+    text: str
+    options: List[OptionPayload]
+    correct_answer: str
+    subject: Optional[str] = "General"
+    marks: Optional[int] = 1
+
+@app.post("/api/admin/update-question-full")
+async def update_question_full_api(request: Request, payload: UpdateQuestionFullRequest):
+    """Update question statement, option texts, correct answer, and subject."""
+    require_admin_auth(request)
+    opts = [o.model_dump() if hasattr(o, "model_dump") else o.dict() for o in payload.options]
+    updated = TestManager.update_question_full(
+        q_no=payload.q_no,
+        text=payload.text,
+        options=opts,
+        correct_answer=payload.correct_answer,
+        subject=payload.subject,
+        marks=payload.marks
+    )
+    if not updated:
+        raise HTTPException(status_code=400, detail=f"Failed to update Question {payload.q_no}.")
+    return {
+        "success": True,
+        "message": f"Question {payload.q_no} successfully updated!",
+        "question": updated
+    }
+
+class DeleteQuestionRequest(BaseModel):
+    q_no: int
+
+@app.post("/api/admin/delete-question")
+async def delete_question_api(request: Request, payload: DeleteQuestionRequest):
+    """Deletes a question from active test and re-indexes remaining questions."""
+    require_admin_auth(request)
+    success = TestManager.delete_question(payload.q_no)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Question Q{payload.q_no} could not be deleted.")
+    active_test = TestManager.get_active_test()
+    total_q = active_test.get("total_questions", 0) if active_test else 0
+    return {
+        "success": True,
+        "message": f"Question {payload.q_no} deleted. Remaining {total_q} questions re-indexed sequentially.",
+        "total_questions": total_q
+    }
+
+class AddQuestionRequest(BaseModel):
+    text: str
+    options: List[OptionPayload]
+    correct_answer: str
+    subject: Optional[str] = "General"
+    marks: Optional[int] = 1
+    image_url: Optional[str] = None
+
+@app.post("/api/admin/add-question")
+async def add_question_api(request: Request, payload: AddQuestionRequest):
+    """Manually append a new question to the active test."""
+    require_admin_auth(request)
+    opts = [o.model_dump() if hasattr(o, "model_dump") else o.dict() for o in payload.options]
+    new_q = TestManager.add_question(
+        text=payload.text,
+        options=opts,
+        correct_answer=payload.correct_answer,
+        subject=payload.subject,
+        marks=payload.marks,
+        image_url=payload.image_url
+    )
+    if not new_q:
+        raise HTTPException(status_code=400, detail="Failed to add new question. Ensure a test is active.")
+    active_test = TestManager.get_active_test()
+    return {
+        "success": True,
+        "message": f"Question {new_q['q_no']} added successfully!",
+        "question": new_q,
+        "total_questions": active_test.get("total_questions", 0)
+    }
+
+@app.post("/api/admin/upload-option-image")
+async def upload_option_image(
+    request: Request,
+    q_no: int = Form(...),
+    opt_key: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """Uploads and attaches a diagram/image to a specific option (A, B, C, D) of a question."""
+    require_admin_auth(request)
+
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"}
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Allowed formats: PNG, JPG, JPEG, WEBP, SVG, GIF."
+        )
+
+    safe_filename = f"opt_{opt_key.lower()}_q{q_no}_{uuid.uuid4().hex[:8]}{ext}"
+    target_path = os.path.join(QUESTION_IMAGES_DIR, safe_filename)
+
+    with open(target_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    image_url = f"/static/uploads/questions/{safe_filename}"
+    success = TestManager.attach_option_image(q_no, opt_key, image_url)
+    if not success:
+        if os.path.exists(target_path):
+            try:
+                os.remove(target_path)
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail=f"Question Q{q_no} Option {opt_key} not found.")
+
+    return {
+        "success": True,
+        "q_no": q_no,
+        "opt_key": opt_key.upper(),
+        "image_url": image_url,
+        "message": f"Option {opt_key.upper()} image attached to Question {q_no}!"
+    }
+
+class RemoveOptionImageRequest(BaseModel):
+    q_no: int
+    opt_key: str
+
+@app.post("/api/admin/remove-option-image")
+async def remove_option_image_api(request: Request, payload: RemoveOptionImageRequest):
+    """Removes attached diagram/image from a specific option."""
+    require_admin_auth(request)
+    success = TestManager.remove_option_image(payload.q_no, payload.opt_key)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Option {payload.opt_key} in Q{payload.q_no} not found.")
+    return {
+        "success": True,
+        "q_no": payload.q_no,
+        "opt_key": payload.opt_key.upper(),
+        "message": f"Image removed from Q{payload.q_no} Option {payload.opt_key.upper()}."
+    }
+
 
 @app.get("/api/admin/submissions")
 async def get_admin_submissions(request: Request):
