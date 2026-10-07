@@ -93,7 +93,23 @@ def analyze_paper_layout_and_slices(img_path: str) -> Dict[str, Any]:
     ocr_result = None
     if engine:
         try:
-            ocr_result, _ = engine(np.array(pil_img))
+            # Optimize OCR speed: if image exceeds 1200px on max dimension, downscale a copy
+            # for rapid neural network inference, then map coordinates back to full W, H.
+            max_ocr_dim = 1200
+            if max(W, H) > max_ocr_dim:
+                scale = max_ocr_dim / float(max(W, H))
+                ocr_w = max(1, int(W * scale))
+                ocr_h = max(1, int(H * scale))
+                ocr_img = pil_img.resize((ocr_w, ocr_h), Image.Resampling.BILINEAR)
+                raw_ocr, _ = engine(np.array(ocr_img))
+                if raw_ocr:
+                    inv_scale = 1.0 / scale
+                    ocr_result = []
+                    for box, txt, score in raw_ocr:
+                        scaled_box = [[pt[0] * inv_scale, pt[1] * inv_scale] for pt in box]
+                        ocr_result.append((scaled_box, txt, score))
+            else:
+                ocr_result, _ = engine(np.array(pil_img))
         except Exception as e:
             print(f"[Photo Paper Slicer] OCR failed ({e}). Proceeding to visual projection profile.")
             ocr_result = None

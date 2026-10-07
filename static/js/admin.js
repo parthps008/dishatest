@@ -1086,9 +1086,21 @@ async function startInteractiveLayoutReview() {
 
     calibPagesData = [];
     currentCalibPageIndex = 0;
+    const totalPages = selectedPhotoPaperFilesArray.length;
 
     try {
-        for (let i = 0; i < selectedPhotoPaperFilesArray.length; i++) {
+        for (let i = 0; i < totalPages; i++) {
+            const listEl = document.getElementById('calibQuestionsList');
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-navy);"></i>
+                        <p style="margin-top: 0.85rem; font-weight: 700; color: var(--primary-navy);">Analyzing Page ${i + 1} of ${totalPages}...</p>
+                        <p style="font-size: 0.82rem; margin: 0;">Detecting question anchors and option boundaries (A, B, C, D)...</p>
+                    </div>
+                `;
+            }
+
             const file = selectedPhotoPaperFilesArray[i];
             const compFile = await fastCompressImage(file, 1600, 0.85);
 
