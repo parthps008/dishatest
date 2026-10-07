@@ -578,6 +578,11 @@ body {
         left: 16px;
         max-width: calc(100vw - 32px);
     }
+
+    /* Prevent iOS auto-zoom on inputs */
+    input[type="text"], input[type="number"], input[type="password"], select, textarea {
+        font-size: 16px !important;
+    }
 }
 
 @media (max-width: 480px) {
@@ -589,19 +594,24 @@ body {
         display: none; /* Hide tagline on very narrow screens for clean layout */
     }
 
+    .hero-card {
+        padding: 1.25rem 0.75rem !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .hero-title {
+        font-size: 1.35rem !important;
+    }
+
     .meta-pills {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
         gap: 0.35rem;
     }
 
     .meta-pill {
-        font-size: 0.75rem;
-    }
-
-    .instructions-box ul {
-        padding-left: 1.1rem;
-        font-size: 0.84rem;
+        font-size: 0.72rem;
+        padding: 0.25rem 0.55rem;
     }
 
     .admin-notice-banner {
@@ -609,6 +619,82 @@ body {
         align-items: flex-start;
         padding: 0.75rem 1rem;
     }
+}
+
+/* ================= Exam Highlights Strip & Collapsible Instructions ================= */
+.exam-highlights-strip {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.highlight-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--primary-navy);
+}
+
+.instructions-collapsible {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.instructions-collapsible[open] {
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
+.instructions-summary {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.86rem;
+    color: var(--primary-navy);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+    user-select: none;
+}
+
+.instructions-summary::-webkit-details-marker {
+    display: none;
+}
+
+.summary-chevron {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.instructions-collapsible[open] .summary-chevron {
+    transform: rotate(180deg);
+}
+
+.instructions-box-content {
+    padding: 0.75rem 1.15rem 1rem;
+    border-top: 1px dashed var(--border-color);
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+}
+
+.instructions-box-content ul {
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
 }
 
 /* ================= Question Diagrams & Lightbox ================= */

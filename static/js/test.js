@@ -170,10 +170,16 @@ function loadQuestion(index) {
     // Update status badge
     updateCurrentQuestionStatusBadge(index);
 
-    // Question Statement
+    // Question Statement (Auto-hide redundant "Question N" text when image diagram is present)
     const textEl = document.getElementById('qTextDisplay');
     if (textEl) {
-        textEl.textContent = q.text || `Question ${qNum}`;
+        const isGenericStatement = !q.text || /^Question\s*\d+$/i.test(q.text.trim());
+        if (q.image_url && isGenericStatement) {
+            textEl.style.display = 'none';
+        } else {
+            textEl.style.display = 'block';
+            textEl.textContent = q.text || `Question ${qNum}`;
+        }
     }
 
     // Question Diagram / Image
@@ -195,7 +201,9 @@ function loadQuestion(index) {
     
     if (optionsContainer) {
         const options = normalizeOptions(q.options);
-        const isCompact = options.length === 4 && options.every(opt => !opt.image_url && (!opt.text || opt.text.trim().length <= 25));
+        const isGenericOptText = options.every(opt => !opt.text || opt.text.trim().toLowerCase() === `option ${opt.key.toLowerCase()}` || opt.text.trim().toLowerCase() === opt.key.toLowerCase());
+        const isCompact = options.length === 4 && (isGenericOptText || options.every(opt => !opt.image_url && (!opt.text || opt.text.trim().length <= 25)));
+        
         if (isCompact) {
             optionsContainer.classList.add('compact-options-grid');
         } else {
@@ -209,16 +217,19 @@ function loadQuestion(index) {
                     <img src="${opt.image_url}" style="max-height: 120px; max-width: 100%; object-fit: contain; border-radius: 4px; border: 1px solid #cbd5e1; cursor: zoom-in; background: white;" onclick="event.stopPropagation(); openDiagramLightbox('${opt.image_url}')" alt="Option ${opt.key} image">
                 </div>
             ` : '';
+            const displayText = (isGenericOptText && q.image_url) ? `Option ${opt.key}` : escapeHtml(opt.text);
             html += `
-                <label class="cbt-option-item ${isChecked ? 'selected' : ''}" 
-                       onclick="selectOptionChoice('${opt.key}', this)">
+                <label class="cbt-option-item ${isCompact ? 'cbt-opt-compact' : ''} ${isChecked ? 'selected' : ''}" 
+                       onclick="selectOptionChoice('${opt.key}', this)"
+                       title="Select Option ${opt.key}">
                     <input type="radio" name="cbt_option" value="${opt.key}" 
                            class="cbt-option-radio" ${isChecked ? 'checked' : ''}>
                     <span class="cbt-option-badge">${opt.key}</span>
                     <span class="cbt-option-text">
-                        ${escapeHtml(opt.text)}
+                        ${displayText}
                         ${optImgHtml}
                     </span>
+                    <i class="fa-solid fa-circle-check cbt-opt-check-icon"></i>
                 </label>
             `;
         });

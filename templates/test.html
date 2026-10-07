@@ -120,29 +120,26 @@
             <div class="cbt-options-list" id="optionsContainer"></div>
         {% endif %}
 
-        <!-- Action Bar directly below the question -->
+        <!-- Action Bar directly below the question (Mobile-friendly, no duplicate buttons) -->
         <div class="cbt-action-bar">
-            <div class="action-left-group">
-                <button type="button" class="btn btn-outline" id="prevBtn" onclick="goToPreviousQuestion()" disabled>
-                    <i class="fa-solid fa-chevron-left"></i> Previous
+            <div class="cbt-nav-actions">
+                <button type="button" class="btn btn-outline" id="prevBtn" onclick="goToPreviousQuestion()" disabled title="Go to Previous Question">
+                    <i class="fa-solid fa-chevron-left"></i> <span>Previous</span>
                 </button>
-                <button type="button" class="btn btn-outline" id="nextBtn" onclick="goToNextQuestion()">
-                    Next <i class="fa-solid fa-chevron-right"></i>
+                <button type="button" class="btn btn-outline" id="clearBtn" onclick="clearCurrentResponse()" title="Clear Selected Option">
+                    <i class="fa-solid fa-rotate-left"></i> <span>Clear</span>
                 </button>
-                <button type="button" class="btn btn-outline" onclick="clearCurrentResponse()">
-                    <i class="fa-solid fa-rotate-left"></i> Clear Response
+                <button type="button" class="btn btn-review" id="reviewBtn" onclick="markForReviewAndNext()" title="Mark Question for Review & Go Next">
+                    <i class="fa-solid fa-bookmark"></i> <span>Review & Next</span>
                 </button>
-                <button type="button" class="btn btn-review" onclick="markForReviewAndNext()">
-                    <i class="fa-solid fa-bookmark"></i> Mark for Review & Next
+                <button type="button" class="btn btn-primary" id="saveNextBtn" onclick="saveAndNextQuestion()" title="Save Answer & Go to Next Question">
+                    <span>Save & Next</span> <i class="fa-solid fa-chevron-right"></i>
                 </button>
             </div>
             
-            <div class="action-right-group">
-                <button type="button" class="btn btn-primary" onclick="saveAndNextQuestion()">
-                    <i class="fa-solid fa-check"></i> Save & Next
-                </button>
-                <button type="button" class="btn btn-success" onclick="openSubmitModal()">
-                    <i class="fa-solid fa-paper-plane"></i> Submit Test
+            <div class="cbt-submit-wrapper">
+                <button type="button" class="btn btn-success submit-exam-btn" onclick="openSubmitModal()">
+                    <i class="fa-solid fa-paper-plane"></i> <span>Submit Examination</span>
                 </button>
             </div>
         </div>

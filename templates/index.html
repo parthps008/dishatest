@@ -55,21 +55,33 @@
                     </div>
                 </div>
 
-                <div class="instructions-box">
-                    <h4><i class="fa-solid fa-circle-exclamation text-maroon"></i> MHT-CET Examination Instructions:</h4>
-                    <ul>
-                        <li><strong>CBT Single Question View:</strong> One question is displayed at a time with <strong>Previous</strong> and <strong>Next</strong> navigation buttons.</li>
-                        <li><strong>Question Reference Palette:</strong> Located below the question, displaying all question reference boxes (1, 2, 3...). Click any question square to jump to it directly.</li>
-                        <li><strong>Status Color Coding:</strong>
-                            <span style="color: #16a34a; font-weight: 700;">🟩 Green</span> = Answered &bull; 
-                            <span style="color: #dc2626; font-weight: 700;">🟥 Red</span> = Not Answered / Skipped &bull; 
-                            <span style="color: #64748b; font-weight: 700;">⬜ Gray</span> = Not Visited &bull; 
-                            <span style="color: #7c3aed; font-weight: 700;">🟪 Purple</span> = Marked for Review
-                        </li>
-                        <li><strong>Timer:</strong> Dynamic countdown of <strong>{{ active_test.duration_minutes }} minutes</strong>. Auto-submits when time expires.</li>
-                        <li><strong>Clear & Review:</strong> You can clear your response or mark questions for review at any time.</li>
-                    </ul>
+                <!-- Quick Exam Meta Badges on Mobile -->
+                <div class="exam-highlights-strip">
+                    <div class="highlight-chip"><i class="fa-regular fa-clock text-gold"></i> <span>{{ active_test.duration_minutes }} Mins</span></div>
+                    <div class="highlight-chip"><i class="fa-solid fa-list-check text-navy"></i> <span>{{ active_test.total_questions }} Questions</span></div>
+                    <div class="highlight-chip"><i class="fa-solid fa-bolt text-green"></i> <span>Instant Scorecard</span></div>
                 </div>
+
+                <!-- Collapsible Instructions to save mobile vertical space -->
+                <details class="instructions-collapsible">
+                    <summary class="instructions-summary">
+                        <span><i class="fa-solid fa-circle-info text-navy"></i> Exam Instructions & Color Codes</span>
+                        <i class="fa-solid fa-chevron-down summary-chevron"></i>
+                    </summary>
+                    <div class="instructions-box-content">
+                        <ul>
+                            <li><strong>Navigation:</strong> Answer each question and click <strong>Save & Next</strong> to proceed.</li>
+                            <li><strong>Question Palette:</strong> Click any number square below to jump directly to that question.</li>
+                            <li><strong>Color Codes:</strong>
+                                <span style="color: #16a34a; font-weight: 700;">🟩 Answered</span> &bull; 
+                                <span style="color: #dc2626; font-weight: 700;">🟥 Not Answered</span> &bull; 
+                                <span style="color: #64748b; font-weight: 700;">⬜ Not Visited</span> &bull; 
+                                <span style="color: #7c3aed; font-weight: 700;">🟪 Review</span>
+                            </li>
+                            <li><strong>Auto-Submit:</strong> Test automatically submits when time expires.</li>
+                        </ul>
+                    </div>
+                </details>
 
                 <!-- Candidate Registration & Start -->
                 <form action="/test" method="GET" class="start-test-form" onsubmit="return validateStartForm()">
@@ -81,24 +93,24 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label for="studentName"><i class="fa-solid fa-user"></i> Student Full Name <span class="required">*</span></label>
-                            <input type="text" id="studentName" name="name" class="form-control" placeholder="e.g. Rahul Sharma" required>
+                            <input type="text" id="studentName" name="name" class="form-control" placeholder="Enter your full name" required autocomplete="name">
                         </div>
                         <div class="input-group">
-                            <label for="rollNo"><i class="fa-solid fa-id-card"></i> Roll Number / Roll ID</label>
-                            <input type="text" id="rollNo" name="roll" class="form-control" placeholder="e.g. DA-2026-104">
+                            <label for="rollNo"><i class="fa-solid fa-id-card"></i> Roll Number / ID</label>
+                            <input type="text" id="rollNo" name="roll" class="form-control" placeholder="e.g. DA-104 or leave blank" autocomplete="off">
                         </div>
                     </div>
 
                     <div class="form-consent">
                         <label class="checkbox-container">
-                            <input type="checkbox" id="consentCheck" required>
+                            <input type="checkbox" id="consentCheck" checked required>
                             <span class="checkmark"></span>
-                            <span>I have read and understood all MHT-CET exam instructions and color-code rules.</span>
+                            <span>I am ready to begin this timed examination.</span>
                         </label>
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-lg start-btn">
-                        <span>Begin Assessment Now</span>
+                        <span>Start Examination</span>
                         <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </form>

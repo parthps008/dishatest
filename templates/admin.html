@@ -15,18 +15,11 @@
             <p>Upload question paper PDFs, configure dynamic durations, inspect extracted MCQs, and manage tests.</p>
         </div>
         <div class="admin-actions-bar">
-            <div class="admin-user-badge" style="display: inline-flex; align-items: center; gap: 0.5rem; background: #ffffff; padding: 0.45rem 0.95rem; border-radius: var(--radius-full); border: 1.5px solid #cbd5e1; font-size: 0.85rem; font-weight: 700; color: var(--primary-navy);">
-                <i class="fa-solid fa-user-shield text-maroon"></i>
-                <span>{{ current_admin or "dishateacher" }}</span>
-            </div>
-            <button type="button" class="btn btn-outline" onclick="loadSampleTestPrompt()">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Load Sample Test
-            </button>
-            <a href="/?from=admin" target="_blank" class="btn btn-primary">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Student Portal
+            <a href="/?from=admin" target="_blank" class="btn btn-primary" title="Open Student Test View">
+                <i class="fa-solid fa-graduation-cap"></i> <span>Student Portal</span>
             </a>
-            <a href="/admin/logout" class="btn btn-danger" title="Logout from Admin Portal" onclick="try{localStorage.removeItem('disha_admin_active');}catch(e){}">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+            <a href="/admin/logout" class="btn btn-outline" style="color: #ef4444; border-color: #fca5a5;" title="Logout from Admin" onclick="try{localStorage.removeItem('disha_admin_active');}catch(e){}">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> <span>Logout</span>
             </a>
         </div>
     </div>
