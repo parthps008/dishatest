@@ -6,18 +6,29 @@ from typing import List, Dict, Tuple, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from PIL import Image, ImageOps
-from rapidocr_onnxruntime import RapidOCR
-
 from app.pdf_parser import detect_test_meta, extract_answer_keys
 
 # Singleton OCR engine to avoid re-initializing on each request
 _ocr_engine = None
+_ocr_init_attempted = False
 
-def get_ocr_engine() -> RapidOCR:
-    global _ocr_engine
-    if _ocr_engine is None:
+
+def get_ocr_engine():
+    """Lazily loads RapidOCR engine if available, or returns None to use visual fallback."""
+    global _ocr_engine, _ocr_init_attempted
+    if _ocr_init_attempted:
+        return _ocr_engine
+    
+    _ocr_init_attempted = True
+    try:
+        from rapidocr_onnxruntime import RapidOCR
         _ocr_engine = RapidOCR()
+        print("[Photo Paper Slicer] RapidOCR AI engine successfully initialized.")
+    except Exception as e:
+        print(f"[Photo Paper Slicer] RapidOCR not available ({e}). Using pure vision fallback slicer.")
+        _ocr_engine = None
     return _ocr_engine
+
 
 PREFIXED_Q_RE = re.compile(
     r'^(?:Q(?:uestion|ue)?|Q\.?No\.?)[\.\s\-_]*(?:\(?|\[?)(\d{1,3})(?:\)?|\]?)(?:[\.\)\:\-]|\s|$)',
@@ -69,22 +80,107 @@ def optimize_and_save_crop(img: Image.Image, target_path: str, max_width: int = 
     
     img.save(target_path, "JPEG", quality=84)
 
+def slice_paper_image_visual(pil_img: Image.Image) -> Tuple[List[Tuple[int, Image.Image]], str]:
+    """
+    Pure-vision document slicer fallback:
+    Analyzes document columns, whitespace gutters, and segments questions
+    without requiring OCR or native C++ dependencies.
+    """
+    W, H = pil_img.size
+    gray = np.array(pil_img.convert('L'))
+    
+    top_y = max(10, int(H * 0.14))
+    bottom_y = min(H - 10, int(H * 0.96))
+    
+    # Detect 2-column layout by checking center vertical gutter
+    mid_start, mid_end = int(W * 0.40), int(W * 0.60)
+    col_dark = (gray[top_y:bottom_y, :] < 205).sum(axis=0)
+    mid_min_x = mid_start + int(np.argmin(col_dark[mid_start:mid_end]))
+    avg_dark = float(col_dark.mean()) if col_dark.size > 0 else 1.0
+    
+    is_two_col = (col_dark[mid_min_x] < (avg_dark * 0.65)) and (mid_min_x > W * 0.35) and (mid_min_x < W * 0.65)
+    
+    columns = []
+    if is_two_col:
+        columns.append(('left', max(0, int(W * 0.04)), mid_min_x - 8))
+        columns.append(('right', mid_min_x + 8, min(W, int(W * 0.96))))
+    else:
+        columns.append(('single', max(0, int(W * 0.04)), min(W, int(W * 0.96))))
+        
+    crops = []
+    q_counter = 1
+    
+    for _, col_left, col_right in columns:
+        col_w = col_right - col_left
+        if col_w < 60:
+            continue
+            
+        sub_gray = gray[top_y:bottom_y, col_left:col_right]
+        row_dark = (sub_gray < 205).sum(axis=1)
+        row_thresh = max(3, int(col_w * 0.035))
+        is_whitespace = row_dark < row_thresh
+        
+        dividers = [top_y]
+        in_gap = False
+        gap_start = 0
+        min_gap_height = 8
+        
+        for i, blank in enumerate(is_whitespace):
+            if blank and not in_gap:
+                in_gap = True
+                gap_start = i
+            elif not blank and in_gap:
+                in_gap = False
+                gap_h = i - gap_start
+                if gap_h >= min_gap_height:
+                    div_y = top_y + (gap_start + i) // 2
+                    if (div_y - dividers[-1]) >= 55:
+                        dividers.append(div_y)
+                        
+        dividers.append(bottom_y)
+        
+        if len(dividers) < 3:
+            default_q_count = 4
+            step = (bottom_y - top_y) // default_q_count
+            dividers = [top_y + (s * step) for s in range(default_q_count + 1)]
+            dividers[-1] = bottom_y
+            
+        for d_idx in range(len(dividers) - 1):
+            y1 = max(0, dividers[d_idx] - 3)
+            y2 = min(H, dividers[d_idx + 1] + 3)
+            if (y2 - y1) >= 40:
+                crop = pil_img.crop((col_left, y1, col_right, y2))
+                crop = trim_white_borders(crop)
+                crops.append((q_counter, crop))
+                q_counter += 1
+                
+    if not crops:
+        crops = [(1, pil_img)]
+        
+    return (crops, "Disha Academy Practice Paper")
+
 def slice_single_paper_image(img_path: str) -> Tuple[List[Tuple[int, Image.Image]], str]:
     """
     Analyzes a single test paper photo, runs AI vision OCR to detect question numbers,
-    and crops each question into its own screenshot.
+    and crops each question into its own screenshot. Falls back gracefully to visual segmentation.
     Returns: (list of (q_num, cropped_img), extracted_text)
     """
-    engine = get_ocr_engine()
     pil_img = Image.open(img_path)
     pil_img = ImageOps.exif_transpose(pil_img)
     W, H = pil_img.size
 
-    img_np = np.array(pil_img)
-    ocr_result, _ = engine(img_np)
-    if not ocr_result:
-        # Fallback: whole image if no text recognized
-        return ([(1, pil_img)], "")
+    engine = get_ocr_engine()
+    if engine is None:
+        return slice_paper_image_visual(pil_img)
+
+    try:
+        img_np = np.array(pil_img)
+        ocr_result, _ = engine(img_np)
+        if not ocr_result:
+            return slice_paper_image_visual(pil_img)
+    except Exception as e:
+        print(f"[Photo Paper Slicer] OCR execution error: {e}. Falling back to visual document slicer.")
+        return slice_paper_image_visual(pil_img)
 
     # Extract all text for metadata / answer keys
     full_text = "\n".join([item[1] for item in ocr_result])
@@ -117,7 +213,7 @@ def slice_single_paper_image(img_path: str) -> Tuple[List[Tuple[int, Image.Image
             raw_cands.append((num, x_left, y_top, y_bottom, text))
 
     if not raw_cands:
-        return ([(1, pil_img)], full_text)
+        return slice_paper_image_visual(pil_img)
 
     # Detect 1-column vs 2-column layout
     mid_x = W * 0.48
@@ -181,6 +277,8 @@ def slice_single_paper_image(img_path: str) -> Tuple[List[Tuple[int, Image.Image
                 q_trimmed = trim_white_borders(q_crop)
                 crops.append((q_num, q_trimmed))
 
+    if not crops:
+        return slice_paper_image_visual(pil_img)
     return (crops, full_text)
 
 def slice_paper_photos_to_questions(
