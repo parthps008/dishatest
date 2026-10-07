@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     initDropzone();
     initImagesDropzone();
+    initPdfSliceDropzone();
 });
 
 // Dropzone Initialization
@@ -135,26 +136,31 @@ async function handlePdfUpload(e) {
 }
 
 // ===================================================
-// Dual Creation Mode Menu (PDF vs Images)
+// Creation Mode Menu (PDF vs Images vs Auto-Slice PDF)
 // ===================================================
 function switchCreationMenu(mode) {
     const btnPdf = document.getElementById('menuBtnPdf');
     const btnImages = document.getElementById('menuBtnImages');
+    const btnPdfSlice = document.getElementById('menuBtnPdfSlice');
     const panePdf = document.getElementById('pdfUploadPane');
     const paneImages = document.getElementById('imageUploadPane');
+    const panePdfSlice = document.getElementById('pdfSliceUploadPane');
 
     if (!btnPdf || !btnImages || !panePdf || !paneImages) return;
 
+    // Clear active classes and hide all panes
+    [btnPdf, btnImages, btnPdfSlice].forEach(b => b && b.classList.remove('active'));
+    [panePdf, paneImages, panePdfSlice].forEach(p => p && (p.style.display = 'none'));
+
     if (mode === 'images') {
-        btnPdf.classList.remove('active');
-        btnImages.classList.add('active');
-        panePdf.style.display = 'none';
-        paneImages.style.display = 'block';
+        if (btnImages) btnImages.classList.add('active');
+        if (paneImages) paneImages.style.display = 'block';
+    } else if (mode === 'pdf_slice') {
+        if (btnPdfSlice) btnPdfSlice.classList.add('active');
+        if (panePdfSlice) panePdfSlice.style.display = 'block';
     } else {
-        btnImages.classList.remove('active');
-        btnPdf.classList.add('active');
-        paneImages.style.display = 'none';
-        panePdf.style.display = 'block';
+        if (btnPdf) btnPdf.classList.add('active');
+        if (panePdf) panePdf.style.display = 'block';
     }
 }
 
@@ -512,6 +518,154 @@ async function handleImageTestUpload(e) {
     } catch (err) {
         console.error(err);
         showToast('Network error while uploading images.', 'error');
+        submitBtn.disabled = false;
+        if (submitBtnText) submitBtnText.innerHTML = originalText;
+    }
+}
+
+// ===================================================
+// Option 3: PDF to Images Auto-Slice Test Creation Logic
+// ===================================================
+function toggleCustomSliceDuration(val) {
+    const customInput = document.getElementById('customSliceDurationInput');
+    if (!customInput) return;
+    if (val === 'custom') {
+        customInput.style.display = 'inline-block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+    }
+}
+
+function getSelectedSliceDuration() {
+    const select = document.getElementById('sliceDurationSelect');
+    if (!select) return 30;
+    if (select.value === 'custom') {
+        const customVal = parseInt(document.getElementById('customSliceDurationInput').value, 10);
+        return isNaN(customVal) || customVal <= 0 ? 30 : customVal;
+    }
+    return parseInt(select.value, 10) || 30;
+}
+
+function initPdfSliceDropzone() {
+    const dropzone = document.getElementById('pdfSliceDropzone');
+    if (!dropzone) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+            const file = files[0];
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                const input = document.getElementById('pdfSliceFileInput');
+                input.files = files;
+                updatePdfSliceFileBadge(file);
+            } else {
+                showToast('Only PDF files are supported.', 'error');
+            }
+        }
+    });
+}
+
+function handlePdfSliceFileSelect(input) {
+    if (input.files && input.files.length > 0) {
+        updatePdfSliceFileBadge(input.files[0]);
+    }
+}
+
+function updatePdfSliceFileBadge(file) {
+    const badge = document.getElementById('sliceFileSelectionBadge');
+    const nameEl = document.getElementById('selectedSliceFileName');
+    const sizeEl = document.getElementById('selectedSliceFileSize');
+    if (badge && nameEl && sizeEl) {
+        nameEl.textContent = file.name;
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        sizeEl.textContent = `(${sizeMb} MB)`;
+        badge.style.display = 'inline-flex';
+    }
+}
+
+async function handlePdfSliceUpload(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const fileInput = document.getElementById('pdfSliceFileInput');
+    const file = fileInput ? fileInput.files[0] : null;
+
+    if (!file) {
+        showToast('Please select a PDF file first.', 'error');
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showToast('Please select a valid .pdf file.', 'error');
+        return;
+    }
+
+    const duration = getSelectedSliceDuration();
+    const title = document.getElementById('sliceTitleInput') ? document.getElementById('sliceTitleInput').value.trim() : '';
+    const subject = document.getElementById('sliceSubjectInput') ? document.getElementById('sliceSubjectInput').value.trim() : '';
+
+    const submitBtn = document.getElementById('generateSliceBtn');
+    const submitBtnText = document.getElementById('generateSliceBtnText');
+    const originalText = submitBtnText ? submitBtnText.innerHTML : 'Slice PDF & Generate Test';
+
+    submitBtn.disabled = true;
+    if (submitBtnText) {
+        submitBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Auto-Slicing PDF & Generating Questions...`;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('duration', duration);
+    if (title) formData.append('title', title);
+    if (subject) formData.append('subject', subject);
+
+    try {
+        const response = await fetch('/api/admin/create-pdf-sliced-test', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.status === 401) {
+            showToast('Session expired. Redirecting to admin login...', 'error');
+            setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast(data.message || 'PDF sliced and test generated successfully!', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
+        } else {
+            showToast(data.detail || 'Failed to auto-slice PDF.', 'error');
+            submitBtn.disabled = false;
+            if (submitBtnText) submitBtnText.innerHTML = originalText;
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Network error while slicing PDF.', 'error');
         submitBtn.disabled = false;
         if (submitBtnText) submitBtnText.innerHTML = originalText;
     }

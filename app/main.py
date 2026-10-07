@@ -469,6 +469,63 @@ async def create_image_test_api(
                     pass
         raise HTTPException(status_code=400, detail=f"Failed to create test from images: {str(e)}")
 
+@app.post("/api/admin/create-pdf-sliced-test")
+async def create_pdf_sliced_test_api(
+    request: Request,
+    file: UploadFile = File(...),
+    duration: int = Form(30),
+    title: Optional[str] = Form(None),
+    subject: Optional[str] = Form(None)
+):
+    """
+    Option 3: Automatically parses a question paper PDF, slices each question into a high-res snapshot,
+    maps them sequentially (Q1 -> Crop 1, Q2 -> Crop 2, etc.), auto-detects answer keys if available,
+    and activates the test. Enforces single active test policy.
+    """
+    require_admin_auth(request)
+    existing_test = TestManager.get_active_test()
+    if existing_test:
+        raise HTTPException(
+            status_code=400,
+            detail="An active test is already live. Please delete the current test using the Delete Test button before creating a new one."
+        )
+
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed for Auto-Slice.")
+
+    saved_file_path = os.path.join(UPLOADS_DIR, f"sliced_{uuid.uuid4().hex[:8]}_{file.filename}")
+    with open(saved_file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        from app.pdf_image_slicer import slice_pdf_to_question_images
+        
+        test_data = slice_pdf_to_question_images(
+            pdf_path=saved_file_path,
+            output_dir=QUESTION_IMAGES_DIR,
+            override_duration=duration,
+            title_override=title,
+            subject_override=subject
+        )
+        
+        # Save source PDF filename
+        test_data["pdf_filename"] = file.filename
+
+        active_test = TestManager.set_active_test(test_data)
+        
+        return {
+            "success": True,
+            "message": f"Successfully auto-sliced PDF into {active_test['total_questions']} question snapshots and activated test!",
+            "test": active_test
+        }
+    except Exception as e:
+        if os.path.exists(saved_file_path):
+            try:
+                os.remove(saved_file_path)
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail=f"Failed to auto-slice PDF: {str(e)}")
+
 @app.delete("/api/admin/delete-test")
 async def delete_active_test(request: Request):
     """Deletes the active test so a new test can be uploaded."""
