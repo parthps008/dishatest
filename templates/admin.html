@@ -99,7 +99,9 @@
                 <div class="test-info-block">
                     <h4>{{ active_test.title }}</h4>
                     <div class="test-meta-tags">
-                        {% if active_test.test_type == 'pdf_slice' %}
+                        {% if active_test.test_type == 'photo_paper' %}
+                        <span><i class="fa-solid fa-camera text-maroon"></i> <strong>Mode:</strong> Paper Photo Auto-Crop ({{ active_test.total_questions }} Qs)</span>
+                        {% elif active_test.test_type == 'pdf_slice' %}
                         <span><i class="fa-solid fa-wand-magic-sparkles text-maroon"></i> <strong>Mode:</strong> PDF Auto-Sliced ({{ active_test.total_questions }} Qs from {{ active_test.pdf_filename }})</span>
                         {% elif active_test.pdf_filename %}
                         <span><i class="fa-solid fa-file-pdf text-maroon"></i> <strong>File:</strong> {{ active_test.pdf_filename }}</span>
@@ -139,7 +141,7 @@
                     <strong>No active test is currently loaded.</strong>
                 </p>
                 <p style="font-size: 0.88rem; color: var(--text-muted);">
-                    Use the creation form below to upload a question paper PDF or upload question screenshot images (up to 50 images).
+                    Use the creation form below to upload a question paper PDF, upload question screenshots, or upload paper photos.
                 </p>
             </div>
             {% endif %}
@@ -164,7 +166,10 @@
                 </button>
                 <button type="button" class="creation-menu-btn" id="menuBtnPdfSlice" onclick="switchCreationMenu('pdf_slice')">
                     <i class="fa-solid fa-wand-magic-sparkles text-maroon"></i> Option 3: PDF to Images Generate
-                    <span class="badge badge-gold" style="font-size: 0.68rem; padding: 2px 6px; margin-left: 4px;">NEW</span>
+                </button>
+                <button type="button" class="creation-menu-btn" id="menuBtnPhotoPaper" onclick="switchCreationMenu('photo_paper')">
+                    <i class="fa-solid fa-camera text-gold"></i> Option 4: Image to Test (Auto-Crop)
+                    <span class="badge badge-gold" style="font-size: 0.68rem; padding: 2px 6px; margin-left: 4px;">AI VISION</span>
                 </button>
             </div>
         </div>
@@ -175,7 +180,7 @@
                 <div>
                     <strong>An active test is already running.</strong>
                     <p style="margin-top: 2px;">
-                        The portal enforces <em>one test per time</em>. To create a new test (via PDF, Images, or PDF Auto-Slice), please delete the existing active test above using the <strong>Delete Test</strong> button.
+                        The portal enforces <em>one test per time</em>. To create a new test (via PDF, Images, PDF Auto-Slice, or Paper Photo), please delete the existing active test above using the <strong>Delete Test</strong> button.
                     </p>
                 </div>
             </div>
@@ -418,6 +423,91 @@
                     </div>
                 </form>
             </div>
+
+            <!-- OPTION 4: Image to Test (Paper Scan / Photo Auto-Crop) Form -->
+            <div id="photoPaperUploadPane" style="display: none; {% if active_test %}opacity: 0.55; pointer-events: none;{% endif %}">
+                <div style="margin-bottom: 1.15rem; color: var(--text-secondary); font-size: 0.88rem; background: #f0fdf4; border-left: 3.5px solid #16a34a; padding: 0.85rem 1.1rem; border-radius: var(--radius-sm);">
+                    <i class="fa-solid fa-camera" style="color: #16a34a;"></i> <strong>Image to Test Mode (Paper Scan / Photo Auto-Crop):</strong>
+                    Upload smartphone camera photos or CamScanner scans of printed test papers.
+                    Our AI Vision engine automatically scans each page, detects questions (Q1, Q2...), diagrams, and formulas, crops individual question screenshots, and maps them sequentially with fixed ABCD options.
+                    If you upload multiple photos (e.g. Page 1 has 25 questions, Page 2 has 25 questions), all 50 questions are stitched together in order!
+                </div>
+
+                <form id="uploadPhotoPaperForm" onsubmit="handlePhotoPaperUpload(event)">
+                    <!-- Multi-image dropzone for Paper Photos -->
+                    <div class="dropzone" id="photoPaperDropzone" onclick="document.getElementById('photoPaperFileInput').click()">
+                        <i class="fa-solid fa-camera dropzone-icon" style="color: #16a34a;"></i>
+                        <h4>Click or drag & drop Paper Photos / Scans here (Multiple Photos Supported)</h4>
+                        <p>Upload photos taken via phone or scanner (.png, .jpg, .jpeg, .webp). AI automatically slices each question.</p>
+                        <input type="file" id="photoPaperFileInput" name="paper_photos" accept=".png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="handlePhotoPaperFileSelect(this)">
+                        <div id="photoPaperSelectionBadge" style="display: none;" class="selected-file-info">
+                            <i class="fa-solid fa-camera text-green"></i>
+                            <span id="selectedPhotoPaperCount">0 Photos Selected</span>
+                            <span id="selectedPhotoPaperSize" style="color: var(--text-muted); font-size: 0.78rem;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Selected Photos List / Preview Bar -->
+                    <div id="photoPaperListWrap" style="display: none; margin-top: 1rem; padding: 0.75rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="font-size: 0.82rem; font-weight: 700; color: #334155;">Selected Paper Photos in Processing Order:</span>
+                            <button type="button" class="btn btn-outline" style="padding: 1px 7px; font-size: 0.75rem; color: var(--accent-maroon);" onclick="clearPhotoPaperFiles()">
+                                <i class="fa-solid fa-trash-can"></i> Clear All
+                            </button>
+                        </div>
+                        <div id="photoPaperFileList" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+                    </div>
+
+                    <!-- Duration, Title & Subject Controls for Photo Paper Test -->
+                    <div class="upload-controls-grid">
+                        <div class="input-group">
+                            <label for="photoPaperDurationSelect">
+                                <i class="fa-regular fa-clock"></i> Test Duration (Dynamic Minutes) <span class="required">*</span>
+                            </label>
+                            <div class="duration-selector-group">
+                                <select id="photoPaperDurationSelect" class="form-control" onchange="toggleCustomPhotoPaperDuration(this.value)">
+                                    <option value="15">15 Minutes</option>
+                                    <option value="30" selected>30 Minutes (Recommended)</option>
+                                    <option value="45">45 Minutes</option>
+                                    <option value="60">60 Minutes (1 Hour)</option>
+                                    <option value="90">90 Minutes (1.5 Hours)</option>
+                                    <option value="120">120 Minutes (2 Hours)</option>
+                                    <option value="180">180 Minutes (3 Hours)</option>
+                                    <option value="custom">Custom Minutes...</option>
+                                </select>
+                                <input type="number" id="customPhotoPaperDurationInput" class="form-control custom-duration-input" 
+                                       min="1" max="600" placeholder="Mins" style="display: none;" value="30">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="photoPaperTitleInput">
+                                <i class="fa-solid fa-heading"></i> Test Title (Optional Override)
+                            </label>
+                            <input type="text" id="photoPaperTitleInput" class="form-control" 
+                                   placeholder="Leave empty to auto-extract from Paper Header" value="">
+                        </div>
+                    </div>
+
+                    <div class="upload-controls-grid" style="margin-top: 1rem;">
+                        <div class="input-group">
+                            <label for="photoPaperSubjectInput">
+                                <i class="fa-solid fa-book-bookmark"></i> Subject / Category (Optional Override)
+                            </label>
+                            <input type="text" id="photoPaperSubjectInput" class="form-control" 
+                                   placeholder="e.g. Mathematics / Physics / General" value="">
+                        </div>
+                        <div class="input-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                <i class="fa-solid fa-microscope text-green"></i> AI Question Boundary & Diagram Detection enabled
+                            </div>
+                            <button type="submit" id="generatePhotoPaperBtn" class="btn btn-primary btn-lg" style="width: 100%;">
+                                <i class="fa-solid fa-camera"></i> <span id="generatePhotoPaperBtnText">Scan Photos & Generate Test</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -645,10 +735,10 @@
     <div class="modal-content" style="max-width: 460px; text-align: center; border-radius: var(--radius-lg); padding: 2.2rem 1.8rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.45); animation: scaleUpModal 0.25s ease;">
         <div style="margin-bottom: 1.25rem;">
             <h3 style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-wand-magic-sparkles text-gold"></i> <span>Generating Questions</span>
+                <i class="fa-solid fa-wand-magic-sparkles text-gold"></i> <span id="progressModalTitle">Generating Questions</span>
             </h3>
-            <p style="font-size: 0.86rem; color: var(--text-muted); margin: 0;">
-                Auto-slicing PDF into crisp question snapshots...
+            <p id="progressModalSub" style="font-size: 0.86rem; color: var(--text-muted); margin: 0;">
+                Auto-slicing into crisp question snapshots...
             </p>
         </div>
 

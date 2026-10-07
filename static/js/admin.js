@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDropzone();
     initImagesDropzone();
     initPdfSliceDropzone();
+    initPhotoPaperDropzone();
 });
 
 // Dropzone Initialization
@@ -142,15 +143,17 @@ function switchCreationMenu(mode) {
     const btnPdf = document.getElementById('menuBtnPdf');
     const btnImages = document.getElementById('menuBtnImages');
     const btnPdfSlice = document.getElementById('menuBtnPdfSlice');
+    const btnPhotoPaper = document.getElementById('menuBtnPhotoPaper');
     const panePdf = document.getElementById('pdfUploadPane');
     const paneImages = document.getElementById('imageUploadPane');
     const panePdfSlice = document.getElementById('pdfSliceUploadPane');
+    const panePhotoPaper = document.getElementById('photoPaperUploadPane');
 
     if (!btnPdf || !btnImages || !panePdf || !paneImages) return;
 
     // Clear active classes and hide all panes
-    [btnPdf, btnImages, btnPdfSlice].forEach(b => b && b.classList.remove('active'));
-    [panePdf, paneImages, panePdfSlice].forEach(p => p && (p.style.display = 'none'));
+    [btnPdf, btnImages, btnPdfSlice, btnPhotoPaper].forEach(b => b && b.classList.remove('active'));
+    [panePdf, paneImages, panePdfSlice, panePhotoPaper].forEach(p => p && (p.style.display = 'none'));
 
     if (mode === 'images') {
         if (btnImages) btnImages.classList.add('active');
@@ -158,6 +161,9 @@ function switchCreationMenu(mode) {
     } else if (mode === 'pdf_slice') {
         if (btnPdfSlice) btnPdfSlice.classList.add('active');
         if (panePdfSlice) panePdfSlice.style.display = 'block';
+    } else if (mode === 'photo_paper') {
+        if (btnPhotoPaper) btnPhotoPaper.classList.add('active');
+        if (panePhotoPaper) panePhotoPaper.style.display = 'block';
     } else {
         if (btnPdf) btnPdf.classList.add('active');
         if (panePdf) panePdf.style.display = 'block';
@@ -672,6 +678,20 @@ async function handlePdfSliceUpload(e) {
         submitBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing PDF & Generating Questions...`;
     }
 
+    // Configure modal for PDF Auto-Slice
+    const modalTitleEl = document.getElementById('progressModalTitle');
+    const modalSubEl = document.getElementById('progressModalSub');
+    if (modalTitleEl) modalTitleEl.textContent = 'Generating Questions from PDF';
+    if (modalSubEl) modalSubEl.textContent = 'Auto-slicing PDF into crisp question snapshots...';
+
+    const ring = document.getElementById('sliceProgressRing');
+    const subEl = document.getElementById('sliceProgressSub');
+    if (ring) ring.style.stroke = '#2563eb';
+    if (subEl) {
+        subEl.textContent = 'Processing';
+        subEl.style.color = 'var(--text-muted)';
+    }
+
     // Open round circular loading modal
     if (progressModal) {
         progressModal.style.display = 'flex';
@@ -761,6 +781,272 @@ async function handlePdfSliceUpload(e) {
         if (progressModal) progressModal.style.display = 'none';
         console.error(err);
         showToast('Network error while slicing PDF.', 'error');
+        submitBtn.disabled = false;
+        if (submitBtnText) submitBtnText.innerHTML = originalText;
+    }
+}
+
+// ===================================================
+// Option 4: Image to Test (Paper Scan / Photo Auto-Crop) Logic
+// ===================================================
+let selectedPhotoPaperFilesArray = [];
+
+function initPhotoPaperDropzone() {
+    const dropzone = document.getElementById('photoPaperDropzone');
+    if (!dropzone) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+            processIncomingPhotoPaperFiles(Array.from(files));
+        }
+    });
+}
+
+function handlePhotoPaperFileSelect(input) {
+    if (!input.files || input.files.length === 0) return;
+    processIncomingPhotoPaperFiles(Array.from(input.files));
+    input.value = '';
+}
+
+function processIncomingPhotoPaperFiles(fileList) {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const validFiles = fileList.filter(f => {
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        return allowed.includes(f.type) || ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    });
+
+    if (validFiles.length === 0) {
+        showToast('Please select valid paper photo images (.png, .jpg, .jpeg, .webp).', 'error');
+        return;
+    }
+
+    validFiles.forEach(file => {
+        selectedPhotoPaperFilesArray.push(file);
+    });
+
+    updatePhotoPaperFileListDisplay();
+}
+
+function updatePhotoPaperFileListDisplay() {
+    const badge = document.getElementById('photoPaperSelectionBadge');
+    const countEl = document.getElementById('selectedPhotoPaperCount');
+    const sizeEl = document.getElementById('selectedPhotoPaperSize');
+    const wrap = document.getElementById('photoPaperListWrap');
+    const listEl = document.getElementById('photoPaperFileList');
+
+    if (!badge || !countEl || !wrap || !listEl) return;
+
+    if (selectedPhotoPaperFilesArray.length === 0) {
+        badge.style.display = 'none';
+        wrap.style.display = 'none';
+        listEl.innerHTML = '';
+        return;
+    }
+
+    const count = selectedPhotoPaperFilesArray.length;
+    let totalBytes = 0;
+    selectedPhotoPaperFilesArray.forEach(f => { totalBytes += f.size; });
+    const sizeMb = (totalBytes / (1024 * 1024)).toFixed(2);
+
+    countEl.textContent = `${count} Paper Photo${count > 1 ? 's' : ''} Selected`;
+    if (sizeEl) sizeEl.textContent = `(${sizeMb} MB total)`;
+    badge.style.display = 'inline-flex';
+    wrap.style.display = 'block';
+
+    listEl.innerHTML = '';
+    selectedPhotoPaperFilesArray.forEach((file, idx) => {
+        const chip = document.createElement('div');
+        chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.78rem; color: #1e293b;';
+        chip.innerHTML = `
+            <i class="fa-solid fa-file-image" style="color: #16a34a;"></i>
+            <span style="font-weight: 700;">Page ${idx + 1}:</span>
+            <span style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</span>
+            <button type="button" style="border: none; background: transparent; cursor: pointer; color: #ef4444; font-size: 0.82rem; padding: 0 2px;" onclick="removePhotoPaperFile(${idx})">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        `;
+        listEl.appendChild(chip);
+    });
+}
+
+function removePhotoPaperFile(index) {
+    if (index >= 0 && index < selectedPhotoPaperFilesArray.length) {
+        selectedPhotoPaperFilesArray.splice(index, 1);
+        updatePhotoPaperFileListDisplay();
+    }
+}
+
+function clearPhotoPaperFiles() {
+    selectedPhotoPaperFilesArray = [];
+    updatePhotoPaperFileListDisplay();
+}
+
+function toggleCustomPhotoPaperDuration(val) {
+    const customInput = document.getElementById('customPhotoPaperDurationInput');
+    if (!customInput) return;
+    if (val === 'custom') {
+        customInput.style.display = 'inline-block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+    }
+}
+
+function getSelectedPhotoPaperDuration() {
+    const select = document.getElementById('photoPaperDurationSelect');
+    if (!select) return 30;
+    if (select.value === 'custom') {
+        const customVal = parseInt(document.getElementById('customPhotoPaperDurationInput').value, 10);
+        return isNaN(customVal) || customVal <= 0 ? 30 : customVal;
+    }
+    return parseInt(select.value, 10) || 30;
+}
+
+async function handlePhotoPaperUpload(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (selectedPhotoPaperFilesArray.length === 0) {
+        showToast('Please select at least 1 test paper photo to scan.', 'error');
+        return;
+    }
+
+    const duration = getSelectedPhotoPaperDuration();
+    const title = document.getElementById('photoPaperTitleInput') ? document.getElementById('photoPaperTitleInput').value.trim() : '';
+    const subject = document.getElementById('photoPaperSubjectInput') ? document.getElementById('photoPaperSubjectInput').value.trim() : '';
+
+    const submitBtn = document.getElementById('generatePhotoPaperBtn');
+    const submitBtnText = document.getElementById('generatePhotoPaperBtnText');
+    const originalText = submitBtnText ? submitBtnText.innerHTML : 'Scan Photos & Generate Test';
+    const progressModal = document.getElementById('pdfSliceProgressModal');
+
+    submitBtn.disabled = true;
+    if (submitBtnText) {
+        submitBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Scanning Photos & Slicing Questions...`;
+    }
+
+    // Configure modal for Paper Photo AI Vision
+    const modalTitleEl = document.getElementById('progressModalTitle');
+    const modalSubEl = document.getElementById('progressModalSub');
+    if (modalTitleEl) modalTitleEl.textContent = 'AI Vision Question Auto-Crop';
+    if (modalSubEl) modalSubEl.textContent = `Analyzing ${selectedPhotoPaperFilesArray.length} paper photo(s) & extracting question snapshots...`;
+
+    // Reset ring styles
+    const ring = document.getElementById('sliceProgressRing');
+    const subEl = document.getElementById('sliceProgressSub');
+    if (ring) ring.style.stroke = '#2563eb';
+    if (subEl) {
+        subEl.textContent = 'Processing';
+        subEl.style.color = 'var(--text-muted)';
+    }
+
+    if (progressModal) {
+        progressModal.style.display = 'flex';
+    }
+
+    setSliceProgress(10, '<i class="fa-solid fa-camera fa-spin text-navy"></i> Reading & Preprocessing Photos...', `Uploading ${selectedPhotoPaperFilesArray.length} test paper scan(s)...`, 1);
+
+    let currentPct = 10;
+    const progressTimer = setInterval(() => {
+        if (currentPct < 30) {
+            currentPct += 5;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-microscope fa-spin text-navy"></i> Running AI Vision OCR...', 'Detecting question numbers and columns across paper pages...', 2);
+        } else if (currentPct < 60) {
+            currentPct += 5;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-crop-simple fa-spin text-navy"></i> Detecting Question Boundaries...', 'Extracting MCQs, diagrams, and formulas...', 3);
+        } else if (currentPct < 85) {
+            currentPct += 4;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-scissors fa-spin text-navy"></i> Slicing & Optimizing Question Snapshots...', 'Trimming white borders and compressing images for mobile...', 3);
+        } else if (currentPct < 94) {
+            currentPct += 1;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-map-location-dot fa-spin text-navy"></i> Mapping Questions & ABCD Options...', 'Sequentially chaining questions (Q1..Qn)...', 4);
+        }
+    }, 220);
+
+    const formData = new FormData();
+    selectedPhotoPaperFilesArray.forEach(file => {
+        formData.append('files', file);
+    });
+    formData.append('duration', duration);
+    if (title) formData.append('title', title);
+    if (subject) formData.append('subject', subject);
+
+    try {
+        const response = await fetch('/api/admin/create-photo-test', {
+            method: 'POST',
+            body: formData
+        });
+
+        clearInterval(progressTimer);
+
+        if (response.status === 401) {
+            if (progressModal) progressModal.style.display = 'none';
+            showToast('Session expired. Redirecting to admin login...', 'error');
+            setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            const totalQ = (data.test && data.test.total_questions) ? data.test.total_questions : 'all';
+
+            setSliceProgress(
+                100,
+                `<i class="fa-solid fa-circle-check text-green"></i> Completed! All ${totalQ} Test Questions Mapped!`,
+                `Successfully cropped ${totalQ} question screenshots from paper photos and activated test.`,
+                5
+            );
+
+            if (ring) ring.style.stroke = '#10b981';
+            const percentEl = document.getElementById('sliceProgressPercent');
+            if (percentEl) percentEl.innerHTML = `<span style="color: #10b981;">100%</span>`;
+            if (subEl) {
+                subEl.textContent = 'COMPLETED';
+                subEl.style.color = '#10b981';
+            }
+
+            for (let i = 1; i <= 5; i++) {
+                const step = document.getElementById(`stageStep${i}`);
+                if (step) step.className = 'stage-step done';
+            }
+
+            showToast(`Completed! All ${totalQ} test questions mapped!`, 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1400);
+        } else {
+            clearInterval(progressTimer);
+            if (progressModal) progressModal.style.display = 'none';
+            showToast(data.detail || 'Failed to extract questions from test photos.', 'error');
+            submitBtn.disabled = false;
+            if (submitBtnText) submitBtnText.innerHTML = originalText;
+        }
+    } catch (err) {
+        clearInterval(progressTimer);
+        if (progressModal) progressModal.style.display = 'none';
+        console.error(err);
+        showToast('Network error while processing test photos.', 'error');
         submitBtn.disabled = false;
         if (submitBtnText) submitBtnText.innerHTML = originalText;
     }

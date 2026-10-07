@@ -526,6 +526,85 @@ async def create_pdf_sliced_test_api(
                 pass
         raise HTTPException(status_code=400, detail=f"Failed to auto-slice PDF: {str(e)}")
 
+@app.post("/api/admin/create-photo-test")
+async def create_photo_test_api(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    duration: int = Form(30),
+    title: Optional[str] = Form(None),
+    subject: Optional[str] = Form(None)
+):
+    """
+    Option 4: Creates a test by uploading one or more photos/scans of paper test pages (e.g. via CamScanner).
+    AI Vision / RapidOCR scans the test pages, detects question boundaries, diagrams, and math formulas,
+    crops each question into an individual screenshot, and maps questions sequentially across pages (Q1..Qn).
+    Options are fixed A, B, C, D and correct answers can be auto-detected or edited by admin.
+    Enforces single active test policy.
+    """
+    require_admin_auth(request)
+    existing_test = TestManager.get_active_test()
+    if existing_test:
+        raise HTTPException(
+            status_code=400,
+            detail="An active test is already live. Please delete the current test using the Delete Test button before creating a new one."
+        )
+
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="Please upload at least 1 test paper photo.")
+
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
+    temp_saved_paths = []
+
+    try:
+        # Validate extensions
+        for idx, file in enumerate(files):
+            filename = file.filename or f"photo_{idx + 1}.jpg"
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in allowed_exts:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Photo #{idx + 1} ('{filename}') has an unsupported format. Allowed formats: PNG, JPG, JPEG, WEBP."
+                )
+
+        # Save files temporarily for slicing
+        for idx, file in enumerate(files):
+            filename = file.filename or f"photo_{idx + 1}.jpg"
+            ext = os.path.splitext(filename)[1].lower() or ".jpg"
+            safe_temp_name = f"temp_paper_{uuid.uuid4().hex[:8]}_{idx}{ext}"
+            temp_path = os.path.join(UPLOADS_DIR, safe_temp_name)
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            temp_saved_paths.append(temp_path)
+
+        from app.photo_paper_slicer import slice_paper_photos_to_questions
+
+        test_data = slice_paper_photos_to_questions(
+            image_paths=temp_saved_paths,
+            output_dir=QUESTION_IMAGES_DIR,
+            override_duration=duration,
+            title_override=title,
+            subject_override=subject
+        )
+
+        active_test = TestManager.set_active_test(test_data)
+
+        return {
+            "success": True,
+            "message": f"Successfully cropped and mapped {active_test['total_questions']} questions from test photos!",
+            "test": active_test
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract questions from test photos: {str(e)}")
+    finally:
+        for p in temp_saved_paths:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
+
 @app.delete("/api/admin/delete-test")
 async def delete_active_test(request: Request):
     """Deletes the active test so a new test can be uploaded."""
