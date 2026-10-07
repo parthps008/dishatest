@@ -232,24 +232,41 @@ def optimize_and_save_uploaded_image(upload_file: UploadFile, target_path: str, 
     ext = os.path.splitext(target_path)[1].lower()
     try:
         from PIL import Image, ImageOps
+        upload_file.file.seek(0, os.SEEK_END)
+        fsize = upload_file.file.tell()
+        upload_file.file.seek(0)
+
+        # Fast path: If already a compact JPEG (< 300KB)
+        if ext in [".jpg", ".jpeg"] and fsize < 300 * 1024:
+            try:
+                img = Image.open(upload_file.file)
+                if img.width <= max_width:
+                    upload_file.file.seek(0)
+                    with open(target_path, "wb") as buffer:
+                        shutil.copyfileobj(upload_file.file, buffer)
+                    return
+            except Exception:
+                upload_file.file.seek(0)
+
         upload_file.file.seek(0)
         img = Image.open(upload_file.file)
         img = ImageOps.exif_transpose(img)
         if img.width > max_width:
             ratio = max_width / float(img.width)
             new_height = int(float(img.height) * float(ratio))
-            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+            img = img.resize((max_width, new_height), Image.Resampling.BILINEAR if max(img.width, img.height) > 2500 else Image.Resampling.LANCZOS)
         
         if ext in [".jpg", ".jpeg"]:
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
-            img.save(target_path, "JPEG", quality=82, optimize=True)
+            img.save(target_path, "JPEG", quality=82)
         elif ext == ".png":
             if img.mode == "RGBA":
                 alpha = img.split()[-1]
                 if alpha.getextrema() == (255, 255):
                     img = img.convert("RGB")
-            img.save(target_path, "PNG", optimize=True)
+            # Fast PNG compression without slow brute-force filter search
+            img.save(target_path, "PNG", compress_level=4)
         elif ext == ".webp":
             img.save(target_path, "WEBP", quality=82)
         else:
@@ -355,6 +372,7 @@ async def create_image_test_api(
         subject_clean = (subject or "General").strip() or "General"
         test_title = (title or "Disha Academy Image Assessment").strip() or "Disha Academy Image Assessment"
 
+        # Validate file extensions first
         for idx, file in enumerate(files):
             q_no = idx + 1
             filename = file.filename or f"question_{q_no}.jpg"
@@ -365,19 +383,27 @@ async def create_image_test_api(
                     detail=f"File #{q_no} ('{filename}') has an unsupported format. Allowed formats: PNG, JPG, JPEG, WEBP."
                 )
 
+        from concurrent.futures import ThreadPoolExecutor
+
+        def process_one_image_file(item):
+            idx, file = item
+            q_no = idx + 1
+            filename = file.filename or f"question_{q_no}.jpg"
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in allowed_exts:
+                ext = ".jpg"
+
             safe_filename = f"qimg_q{q_no}_{uuid.uuid4().hex[:8]}{ext}"
             target_path = os.path.join(QUESTION_IMAGES_DIR, safe_filename)
 
             optimize_and_save_uploaded_image(file, target_path)
-            saved_paths.append(target_path)
 
             img_url = f"/static/uploads/questions/{safe_filename}"
-
             correct_ans = answers_map.get(str(q_no), "A")
             if correct_ans not in ["A", "B", "C", "D"]:
                 correct_ans = "A"
 
-            questions.append({
+            q_data = {
                 "id": q_no,
                 "q_no": q_no,
                 "text": f"Question {q_no}",
@@ -394,7 +420,18 @@ async def create_image_test_api(
                 "marks": 1,
                 "negative_marks": 0.0,
                 "explanation": None
-            })
+            }
+            return (q_no, target_path, q_data)
+
+        # Process all uploaded screenshots in parallel across CPU cores
+        worker_count = min(8, max(2, (os.cpu_count() or 2) * 2))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            processed_results = list(executor.map(process_one_image_file, enumerate(files)))
+
+        # Sort sequentially by question number
+        processed_results.sort(key=lambda r: r[0])
+        saved_paths = [r[1] for r in processed_results]
+        questions = [r[2] for r in processed_results]
 
         test_data = {
             "id": "test_" + uuid.uuid4().hex[:8],
