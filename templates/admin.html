@@ -99,7 +99,11 @@
                 <div class="test-info-block">
                     <h4>{{ active_test.title }}</h4>
                     <div class="test-meta-tags">
-                        <span><i class="fa-solid fa-file-pdf text-maroon"></i> <strong>File:</strong> {{ active_test.pdf_filename or "Uploaded PDF" }}</span>
+                        {% if active_test.pdf_filename %}
+                        <span><i class="fa-solid fa-file-pdf text-maroon"></i> <strong>File:</strong> {{ active_test.pdf_filename }}</span>
+                        {% else %}
+                        <span><i class="fa-solid fa-images text-maroon"></i> <strong>Mode:</strong> Image-Based Test ({{ active_test.total_questions }} Questions)</span>
+                        {% endif %}
                         <span>&bull;</span>
                         <span><i class="fa-regular fa-clock text-gold"></i> <strong>Duration:</strong> {{ active_test.duration_minutes }} Minutes</span>
                         <span>&bull;</span>
@@ -133,18 +137,31 @@
                     <strong>No active test is currently loaded.</strong>
                 </p>
                 <p style="font-size: 0.88rem; color: var(--text-muted);">
-                    Use the upload form below to upload a question paper PDF, set the duration, and generate the test.
+                    Use the creation form below to upload a question paper PDF or upload question screenshot images (up to 50 images).
                 </p>
             </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- Upload Question Paper PDF Section -->
+    <!-- Create / Upload Test Section (Dual Menu: PDF vs Images) -->
     <div class="admin-card">
-        <div class="admin-card-header">
-            <h3><i class="fa-solid fa-file-arrow-up"></i> Upload Question Paper PDF & Generate Test</h3>
-            <span class="badge badge-navy">Only 1 Active Test Permitted</span>
+        <div class="admin-card-header" style="flex-wrap: wrap; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <h3><i class="fa-solid fa-wand-magic-sparkles text-gold"></i> Create / Upload Test</h3>
+                <span class="badge badge-navy">Single Active Test Permitted</span>
+            </div>
+
+            <!-- Creation Mode Switcher Menu -->
+            <div class="creation-menu-nav">
+                <button type="button" class="creation-menu-btn active" id="menuBtnPdf" onclick="switchCreationMenu('pdf')">
+                    <i class="fa-solid fa-file-pdf text-maroon"></i> Option 1: Upload PDF Paper
+                </button>
+                <button type="button" class="creation-menu-btn" id="menuBtnImages" onclick="switchCreationMenu('images')">
+                    <i class="fa-solid fa-images text-gold"></i> Option 2: Upload Images (Up to 50 Qs)
+                    <span class="badge badge-gold" style="font-size: 0.68rem; padding: 2px 6px; margin-left: 4px;">NEW</span>
+                </button>
+            </div>
         </div>
         <div class="admin-card-body">
             {% if active_test %}
@@ -153,63 +170,177 @@
                 <div>
                     <strong>An active test is already running.</strong>
                     <p style="margin-top: 2px;">
-                        The portal enforces <em>one test per time</em>. To upload a new PDF test, please delete the existing active test above using the <strong>Delete Test</strong> button.
+                        The portal enforces <em>one test per time</em>. To create a new test (via PDF or Images), please delete the existing active test above using the <strong>Delete Test</strong> button.
                     </p>
                 </div>
             </div>
             {% endif %}
 
-            <form id="uploadPdfForm" onsubmit="handlePdfUpload(event)" {% if active_test %}style="opacity: 0.55; pointer-events: none;"{% endif %}>
-                <!-- Dropzone -->
-                <div class="dropzone" id="pdfDropzone" onclick="document.getElementById('pdfFileInput').click()">
-                    <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
-                    <h4>Click or drag & drop Question Paper PDF here</h4>
-                    <p>Supports MCQs with options (A), (B), (C), (D) and optional Answer Key section.</p>
-                    <input type="file" id="pdfFileInput" name="file" accept=".pdf" style="display: none;" onchange="handleFileSelect(this)">
-                    <div id="fileSelectionBadge" style="display: none;" class="selected-file-info">
-                        <i class="fa-solid fa-file-pdf text-maroon"></i>
-                        <span id="selectedFileName">filename.pdf</span>
-                        <span id="selectedFileSize" style="color: var(--text-muted); font-size: 0.78rem;"></span>
-                    </div>
+            <!-- OPTION 1: Upload Question Paper PDF Form (Existing) -->
+            <div id="pdfUploadPane" {% if active_test %}style="opacity: 0.55; pointer-events: none;"{% endif %}>
+                <div style="margin-bottom: 1.15rem; color: var(--text-secondary); font-size: 0.88rem;">
+                    <i class="fa-solid fa-circle-info text-navy"></i> <strong>PDF Mode:</strong> Upload a question paper PDF. Questions, options (A, B, C, D), and answer keys are automatically parsed and extracted.
                 </div>
 
-                <!-- Duration and Title Controls -->
-                <div class="upload-controls-grid">
-                    <div class="input-group">
-                        <label for="durationSelect">
-                            <i class="fa-regular fa-clock"></i> Test Duration (Dynamic Minutes) <span class="required">*</span>
-                        </label>
-                        <div class="duration-selector-group">
-                            <select id="durationSelect" class="form-control" onchange="toggleCustomDuration(this.value)">
-                                <option value="15">15 Minutes</option>
-                                <option value="30" selected>30 Minutes (Recommended)</option>
-                                <option value="45">45 Minutes</option>
-                                <option value="60">60 Minutes (1 Hour)</option>
-                                <option value="90">90 Minutes (1.5 Hours)</option>
-                                <option value="120">120 Minutes (2 Hours)</option>
-                                <option value="180">180 Minutes (3 Hours)</option>
-                                <option value="custom">Custom Minutes...</option>
-                            </select>
-                            <input type="number" id="customDurationInput" class="form-control custom-duration-input" 
-                                   min="1" max="600" placeholder="Mins" style="display: none;" value="30">
+                <form id="uploadPdfForm" onsubmit="handlePdfUpload(event)">
+                    <!-- Dropzone -->
+                    <div class="dropzone" id="pdfDropzone" onclick="document.getElementById('pdfFileInput').click()">
+                        <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                        <h4>Click or drag & drop Question Paper PDF here</h4>
+                        <p>Supports MCQs with options (A), (B), (C), (D) and optional Answer Key section.</p>
+                        <input type="file" id="pdfFileInput" name="file" accept=".pdf" style="display: none;" onchange="handleFileSelect(this)">
+                        <div id="fileSelectionBadge" style="display: none;" class="selected-file-info">
+                            <i class="fa-solid fa-file-pdf text-maroon"></i>
+                            <span id="selectedFileName">filename.pdf</span>
+                            <span id="selectedFileSize" style="color: var(--text-muted); font-size: 0.78rem;"></span>
                         </div>
                     </div>
 
-                    <div class="input-group">
-                        <label for="titleOverrideInput">
-                            <i class="fa-solid fa-heading"></i> Test Title (Optional Override)
-                        </label>
-                        <input type="text" id="titleOverrideInput" class="form-control" 
-                               placeholder="Leave empty to auto-extract from PDF">
+                    <!-- Duration and Title Controls -->
+                    <div class="upload-controls-grid">
+                        <div class="input-group">
+                            <label for="durationSelect">
+                                <i class="fa-regular fa-clock"></i> Test Duration (Dynamic Minutes) <span class="required">*</span>
+                            </label>
+                            <div class="duration-selector-group">
+                                <select id="durationSelect" class="form-control" onchange="toggleCustomDuration(this.value)">
+                                    <option value="15">15 Minutes</option>
+                                    <option value="30" selected>30 Minutes (Recommended)</option>
+                                    <option value="45">45 Minutes</option>
+                                    <option value="60">60 Minutes (1 Hour)</option>
+                                    <option value="90">90 Minutes (1.5 Hours)</option>
+                                    <option value="120">120 Minutes (2 Hours)</option>
+                                    <option value="180">180 Minutes (3 Hours)</option>
+                                    <option value="custom">Custom Minutes...</option>
+                                </select>
+                                <input type="number" id="customDurationInput" class="form-control custom-duration-input" 
+                                       min="1" max="600" placeholder="Mins" style="display: none;" value="30">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="titleOverrideInput">
+                                <i class="fa-solid fa-heading"></i> Test Title (Optional Override)
+                            </label>
+                            <input type="text" id="titleOverrideInput" class="form-control" 
+                                   placeholder="Leave empty to auto-extract from PDF">
+                        </div>
                     </div>
+
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                        <button type="submit" id="generateBtn" class="btn btn-primary btn-lg" style="min-width: 200px;">
+                            <i class="fa-solid fa-bolt"></i> <span>Generate Test</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- OPTION 2: Upload Question Images Form (NEW) -->
+            <div id="imageUploadPane" style="display: none; {% if active_test %}opacity: 0.55; pointer-events: none;{% endif %}">
+                <div style="margin-bottom: 1.15rem; color: var(--text-secondary); font-size: 0.88rem; background: #f0f7ff; border-left: 3.5px solid #2563eb; padding: 0.85rem 1.1rem; border-radius: var(--radius-sm);">
+                    <i class="fa-solid fa-images text-navy"></i> <strong>Image Mode:</strong>
+                    Upload up to <strong>50 question screenshots</strong>. Each image is sequentially mapped to 1 question (Image 1 = Q1, Image 2 = Q2, etc.).
+                    Options are fixed as <strong>A, B, C, D</strong>. Test givers will view each screenshot and pick the matching option.
+                    All images are compressed to save storage. You can set the correct answer for each question below and edit anytime!
                 </div>
 
-                <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                    <button type="submit" id="generateBtn" class="btn btn-primary btn-lg" style="min-width: 200px;">
-                        <i class="fa-solid fa-bolt"></i> <span>Generate Test</span>
-                    </button>
-                </div>
-            </form>
+                <form id="uploadImagesForm" onsubmit="handleImageTestUpload(event)">
+                    <!-- Multi-image dropzone -->
+                    <div class="dropzone" id="imagesDropzone" onclick="document.getElementById('imagesFileInput').click()">
+                        <i class="fa-solid fa-images dropzone-icon" style="color: var(--accent-gold);"></i>
+                        <h4>Click or drag & drop Question Screenshot Images here (Up to 50 Images)</h4>
+                        <p>Select multiple images at once (.png, .jpg, .jpeg, .webp). Supports 1 to 50 question screenshots.</p>
+                        <input type="file" id="imagesFileInput" name="image_files" accept=".png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="handleImageFilesSelect(this)">
+                    </div>
+
+                    <!-- Selected Images Preview and Answer Key Table -->
+                    <div id="selectedImagesContainer" style="display: none; margin-top: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem; padding-bottom: 0.75rem; border-bottom: 1.5px solid #e2e8f0;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <span class="badge badge-navy" id="imagesCountBadge" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">0 Images Selected</span>
+                                <span style="font-size: 0.82rem; color: var(--text-secondary);">Image order maps sequentially to Question Numbers (Q1, Q2...)</span>
+                            </div>
+                            <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+                                <span style="font-size: 0.78rem; font-weight: 700; color: #475569;">Quick Set All:</span>
+                                <button type="button" class="btn btn-outline" style="padding: 2px 7px; font-size: 0.78rem; font-weight: 700;" onclick="bulkSetAllImageAnswers('A')">All A</button>
+                                <button type="button" class="btn btn-outline" style="padding: 2px 7px; font-size: 0.78rem; font-weight: 700;" onclick="bulkSetAllImageAnswers('B')">All B</button>
+                                <button type="button" class="btn btn-outline" style="padding: 2px 7px; font-size: 0.78rem; font-weight: 700;" onclick="bulkSetAllImageAnswers('C')">All C</button>
+                                <button type="button" class="btn btn-outline" style="padding: 2px 7px; font-size: 0.78rem; font-weight: 700;" onclick="bulkSetAllImageAnswers('D')">All D</button>
+                                <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.78rem; color: var(--accent-maroon); border-color: #fca5a5;" onclick="clearAllSelectedImages()">
+                                    <i class="fa-solid fa-trash-can"></i> Clear All
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Images & Answers Grid -->
+                        <div class="image-questions-table-wrap" style="max-height: 440px; overflow-y: auto; border: 1.5px solid #e2e8f0; border-radius: var(--radius-md); background: #ffffff;">
+                            <table class="data-table" id="imagesQuestionsTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 75px;">Q.No</th>
+                                        <th style="width: 110px;">Thumbnail</th>
+                                        <th>Screenshot File Name & Size</th>
+                                        <th style="width: 220px;">Correct Answer Key <span class="required">*</span></th>
+                                        <th style="width: 80px; text-align: center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="imagesTableBody">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Duration, Title & Subject Controls for Image Test -->
+                    <div class="upload-controls-grid">
+                        <div class="input-group">
+                            <label for="imgDurationSelect">
+                                <i class="fa-regular fa-clock"></i> Test Duration (Dynamic Minutes) <span class="required">*</span>
+                            </label>
+                            <div class="duration-selector-group">
+                                <select id="imgDurationSelect" class="form-control" onchange="toggleCustomImgDuration(this.value)">
+                                    <option value="15">15 Minutes</option>
+                                    <option value="30" selected>30 Minutes (Recommended)</option>
+                                    <option value="45">45 Minutes</option>
+                                    <option value="60">60 Minutes (1 Hour)</option>
+                                    <option value="90">90 Minutes (1.5 Hours)</option>
+                                    <option value="120">120 Minutes (2 Hours)</option>
+                                    <option value="180">180 Minutes (3 Hours)</option>
+                                    <option value="custom">Custom Minutes...</option>
+                                </select>
+                                <input type="number" id="customImgDurationInput" class="form-control custom-duration-input" 
+                                       min="1" max="600" placeholder="Mins" style="display: none;" value="30">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="imgTitleInput">
+                                <i class="fa-solid fa-heading"></i> Test Title <span class="required">*</span>
+                            </label>
+                            <input type="text" id="imgTitleInput" class="form-control" 
+                                   placeholder="e.g. Disha Academy Mathematics MCQ Test" value="Disha Academy Image Assessment">
+                        </div>
+                    </div>
+
+                    <div class="upload-controls-grid" style="margin-top: 1rem;">
+                        <div class="input-group">
+                            <label for="imgSubjectInput">
+                                <i class="fa-solid fa-book-bookmark"></i> Subject / Category
+                            </label>
+                            <input type="text" id="imgSubjectInput" class="form-control" 
+                                   placeholder="e.g. Physics / Chemistry / Mathematics / General" value="General">
+                        </div>
+                        <div class="input-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                <i class="fa-solid fa-shield-halved text-green"></i> Auto-compression: enabled (reclaims up to 90% disk space)
+                            </div>
+                            <button type="submit" id="generateImagesBtn" class="btn btn-primary btn-lg" style="width: 100%;" disabled>
+                                <i class="fa-solid fa-bolt"></i> <span id="generateImagesBtnText">Select Images to Create Test</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

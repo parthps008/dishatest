@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     initDropzone();
+    initImagesDropzone();
 });
 
 // Dropzone Initialization
@@ -130,6 +131,305 @@ async function handlePdfUpload(e) {
         showToast('Network error while uploading PDF.', 'error');
         generateBtn.disabled = false;
         generateBtn.innerHTML = originalBtnHtml;
+    }
+}
+
+// ===================================================
+// Dual Creation Mode Menu (PDF vs Images)
+// ===================================================
+function switchCreationMenu(mode) {
+    const btnPdf = document.getElementById('menuBtnPdf');
+    const btnImages = document.getElementById('menuBtnImages');
+    const panePdf = document.getElementById('pdfUploadPane');
+    const paneImages = document.getElementById('imageUploadPane');
+
+    if (!btnPdf || !btnImages || !panePdf || !paneImages) return;
+
+    if (mode === 'images') {
+        btnPdf.classList.remove('active');
+        btnImages.classList.add('active');
+        panePdf.style.display = 'none';
+        paneImages.style.display = 'block';
+    } else {
+        btnImages.classList.remove('active');
+        btnPdf.classList.add('active');
+        paneImages.style.display = 'none';
+        panePdf.style.display = 'block';
+    }
+}
+
+// ===================================================
+// Multi-Image Question Test Creation Logic (Up to 50 Qs)
+// ===================================================
+let selectedImageFilesArray = []; // Array of { file, answer, objectUrl }
+
+function initImagesDropzone() {
+    const dropzone = document.getElementById('imagesDropzone');
+    if (!dropzone) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+            processIncomingImageFiles(Array.from(files));
+        }
+    });
+}
+
+function handleImageFilesSelect(input) {
+    if (!input.files || input.files.length === 0) return;
+    processIncomingImageFiles(Array.from(input.files));
+    // Reset file input value so user can re-select same file if needed
+    input.value = '';
+}
+
+function processIncomingImageFiles(fileList) {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const validFiles = fileList.filter(f => {
+        const ext = '.' + f.name.split('.').pop().toLowerCase();
+        return allowed.includes(f.type) || ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    });
+
+    if (validFiles.length === 0) {
+        showToast('Please select valid image files (.png, .jpg, .jpeg, .webp).', 'error');
+        return;
+    }
+
+    if (selectedImageFilesArray.length + validFiles.length > 50) {
+        const allowedCount = 50 - selectedImageFilesArray.length;
+        if (allowedCount <= 0) {
+            showToast('Maximum 50 images limit reached. Cannot add more images.', 'error');
+            return;
+        }
+        showToast(`Only first ${allowedCount} images added. Maximum limit is 50 images per test.`, 'warning');
+        validFiles.splice(allowedCount);
+    }
+
+    validFiles.forEach(file => {
+        selectedImageFilesArray.push({
+            file: file,
+            answer: 'A',
+            objectUrl: URL.createObjectURL(file)
+        });
+    });
+
+    renderImagesPreviewTable();
+    showToast(`Added ${validFiles.length} image(s). Total: ${selectedImageFilesArray.length}/50 questions.`, 'success');
+}
+
+function renderImagesPreviewTable() {
+    const container = document.getElementById('selectedImagesContainer');
+    const tbody = document.getElementById('imagesTableBody');
+    const countBadge = document.getElementById('imagesCountBadge');
+    const submitBtn = document.getElementById('generateImagesBtn');
+    const submitBtnText = document.getElementById('generateImagesBtnText');
+
+    if (!container || !tbody) return;
+
+    const count = selectedImageFilesArray.length;
+
+    if (count === 0) {
+        container.style.display = 'none';
+        tbody.innerHTML = '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            if (submitBtnText) submitBtnText.textContent = 'Select Images to Create Test';
+        }
+        return;
+    }
+
+    container.style.display = 'block';
+    if (countBadge) countBadge.textContent = `${count} Images Selected (${count} Questions)`;
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        if (submitBtnText) submitBtnText.textContent = `Generate Image Test (${count} Questions)`;
+    }
+
+    let rowsHtml = '';
+    selectedImageFilesArray.forEach((item, index) => {
+        const qNum = index + 1;
+        const fileSizeStr = (item.file.size / 1024).toFixed(1) + ' KB';
+
+        rowsHtml += `
+            <tr>
+                <td><span class="badge badge-navy" style="font-size: 0.85rem; font-weight: 800;">Q${qNum}</span></td>
+                <td>
+                    <img src="${item.objectUrl}" class="img-table-thumb" alt="Q${qNum}" onclick="window.open('${item.objectUrl}', '_blank')" title="Click to view full image">
+                </td>
+                <td>
+                    <div style="font-weight: 700; color: var(--primary-navy); word-break: break-all; font-size: 0.88rem;">${escapeHtml(item.file.name)}</div>
+                    <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">
+                        <i class="fa-solid fa-file-image"></i> ${fileSizeStr} &bull; Mapped to Question ${qNum}
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; margin: 0;">Key:</label>
+                        <select class="form-select form-select-sm image-q-ans-select" onchange="setImageQuestionAnswer(${index}, this.value)">
+                            <option value="A" ${item.answer === 'A' ? 'selected' : ''}>Option A</option>
+                            <option value="B" ${item.answer === 'B' ? 'selected' : ''}>Option B</option>
+                            <option value="C" ${item.answer === 'C' ? 'selected' : ''}>Option C</option>
+                            <option value="D" ${item.answer === 'D' ? 'selected' : ''}>Option D</option>
+                        </select>
+                    </div>
+                </td>
+                <td style="text-align: center;">
+                    <button type="button" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.8rem; color: var(--accent-maroon); border-color: #fca5a5;" onclick="removeSelectedImage(${index})" title="Remove this screenshot">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+}
+
+function setImageQuestionAnswer(index, val) {
+    if (index >= 0 && index < selectedImageFilesArray.length) {
+        selectedImageFilesArray[index].answer = (val || 'A').toUpperCase();
+    }
+}
+
+function removeSelectedImage(index) {
+    if (index >= 0 && index < selectedImageFilesArray.length) {
+        const removed = selectedImageFilesArray.splice(index, 1)[0];
+        if (removed && removed.objectUrl) {
+            try { URL.revokeObjectURL(removed.objectUrl); } catch (e) {}
+        }
+        renderImagesPreviewTable();
+    }
+}
+
+function bulkSetAllImageAnswers(val) {
+    val = (val || 'A').toUpperCase();
+    selectedImageFilesArray.forEach(item => {
+        item.answer = val;
+    });
+    renderImagesPreviewTable();
+    showToast(`All ${selectedImageFilesArray.length} question answers set to Option ${val}.`, 'info');
+}
+
+function clearAllSelectedImages() {
+    selectedImageFilesArray.forEach(item => {
+        if (item.objectUrl) {
+            try { URL.revokeObjectURL(item.objectUrl); } catch (e) {}
+        }
+    });
+    selectedImageFilesArray = [];
+    renderImagesPreviewTable();
+}
+
+function toggleCustomImgDuration(val) {
+    const customInput = document.getElementById('customImgDurationInput');
+    if (!customInput) return;
+    if (val === 'custom') {
+        customInput.style.display = 'inline-block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+    }
+}
+
+function getSelectedImgDuration() {
+    const select = document.getElementById('imgDurationSelect');
+    if (!select) return 30;
+    if (select.value === 'custom') {
+        const customVal = parseInt(document.getElementById('customImgDurationInput').value, 10);
+        return isNaN(customVal) || customVal <= 0 ? 30 : customVal;
+    }
+    return parseInt(select.value, 10) || 30;
+}
+
+async function handleImageTestUpload(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (selectedImageFilesArray.length === 0) {
+        showToast('Please select at least 1 question screenshot image.', 'error');
+        return;
+    }
+
+    if (selectedImageFilesArray.length > 50) {
+        showToast('Maximum 50 images allowed per test.', 'error');
+        return;
+    }
+
+    const duration = getSelectedImgDuration();
+    const title = document.getElementById('imgTitleInput').value.trim() || 'Disha Academy Image Assessment';
+    const subject = document.getElementById('imgSubjectInput').value.trim() || 'General';
+
+    const submitBtn = document.getElementById('generateImagesBtn');
+    const submitBtnText = document.getElementById('generateImagesBtnText');
+    const originalText = submitBtnText ? submitBtnText.innerHTML : 'Generate Test';
+
+    submitBtn.disabled = true;
+    if (submitBtnText) {
+        submitBtnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Compressing & Generating Test...';
+    }
+
+    const formData = new FormData();
+    selectedImageFilesArray.forEach(item => {
+        formData.append('files', item.file);
+    });
+
+    const answersMap = {};
+    selectedImageFilesArray.forEach((item, index) => {
+        answersMap[String(index + 1)] = item.answer || 'A';
+    });
+    formData.append('answers_json', JSON.stringify(answersMap));
+    formData.append('duration', duration);
+    formData.append('title', title);
+    formData.append('subject', subject);
+
+    try {
+        const response = await fetch('/api/admin/create-image-test', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.status === 401) {
+            showToast('Session expired. Redirecting to admin login...', 'error');
+            setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast(data.message || 'Image test created successfully!', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
+        } else {
+            showToast(data.detail || 'Failed to create image test.', 'error');
+            submitBtn.disabled = false;
+            if (submitBtnText) submitBtnText.innerHTML = originalText;
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Network error while uploading images.', 'error');
+        submitBtn.disabled = false;
+        if (submitBtnText) submitBtnText.innerHTML = originalText;
     }
 }
 
@@ -436,7 +736,7 @@ function renderQuestionViewCard(q, correctKey) {
                         </div>
                     ` : '';
                     return `
-                        <div class="q-opt-pill ${isTarget ? 'is-correct' : ''}" data-key="${opt.key}">
+                        <div class="q-opt-pill ${isTarget ? 'is-correct' : ''}" data-key="${opt.key}" style="cursor: pointer;" onclick="updateQuestionAnswer(${q.q_no}, '${opt.key}')" title="Click to set Option ${opt.key} as correct answer">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span><strong>(${opt.key})</strong> ${escapeHtml(opt.text)}</span>
                                 ${isTarget ? '<i class="fa-solid fa-check-circle" style="color:var(--green);" title="Correct Answer"></i>' : ''}

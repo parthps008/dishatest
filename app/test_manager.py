@@ -61,7 +61,8 @@ class TestManager:
             "total_questions": len(sanitized_questions),
             "questions": sanitized_questions,
             "created_at": test["created_at"],
-            "pdf_filename": test.get("pdf_filename", "")
+            "pdf_filename": test.get("pdf_filename", ""),
+            "test_type": test.get("test_type", "pdf")
         }
 
     @staticmethod

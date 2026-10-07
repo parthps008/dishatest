@@ -35,6 +35,7 @@ class TestData(BaseModel):
     questions: List[Question]
     created_at: str
     pdf_filename: Optional[str] = None
+    test_type: Optional[str] = "pdf" # "pdf" or "image"
 
 class StudentAnswer(BaseModel):
     q_no: int

@@ -1,6 +1,8 @@
 import os
 import shutil
 import uuid
+import json
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
@@ -222,6 +224,43 @@ async def get_admin_active_test(request: Request):
     active_test = TestManager.get_active_test()
     return {"active_test": active_test}
 
+def optimize_and_save_uploaded_image(upload_file: UploadFile, target_path: str, max_width: int = 1200):
+    """
+    Compresses and auto-optimizes uploaded mobile screenshots and diagram images.
+    Converts huge 3-5MB phone screenshots into crisp ~60-120KB images so tests load instantly on mobile data.
+    """
+    ext = os.path.splitext(target_path)[1].lower()
+    try:
+        from PIL import Image, ImageOps
+        upload_file.file.seek(0)
+        img = Image.open(upload_file.file)
+        img = ImageOps.exif_transpose(img)
+        if img.width > max_width:
+            ratio = max_width / float(img.width)
+            new_height = int(float(img.height) * float(ratio))
+            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        
+        if ext in [".jpg", ".jpeg"]:
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(target_path, "JPEG", quality=82, optimize=True)
+        elif ext == ".png":
+            if img.mode == "RGBA":
+                alpha = img.split()[-1]
+                if alpha.getextrema() == (255, 255):
+                    img = img.convert("RGB")
+            img.save(target_path, "PNG", optimize=True)
+        elif ext == ".webp":
+            img.save(target_path, "WEBP", quality=82)
+        else:
+            upload_file.file.seek(0)
+            with open(target_path, "wb") as buffer:
+                shutil.copyfileobj(upload_file.file, buffer)
+    except Exception:
+        upload_file.file.seek(0)
+        with open(target_path, "wb") as buffer:
+            shutil.copyfileobj(upload_file.file, buffer)
+
 @app.post("/api/admin/upload-pdf")
 async def upload_pdf_and_parse(
     request: Request,
@@ -267,6 +306,132 @@ async def upload_pdf_and_parse(
                 pass
         raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
 
+@app.post("/api/admin/create-image-test")
+async def create_image_test_api(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    duration: int = Form(30),
+    title: Optional[str] = Form(None),
+    subject: Optional[str] = Form(None),
+    answers_json: Optional[str] = Form(None)
+):
+    """
+    Creates an image-based MCQ test where each uploaded screenshot corresponds to one question (1st image = Q1, 2nd = Q2, etc.).
+    Supports up to 50 images with multi-image upload and compression.
+    Options are fixed A, B, C, D. Answers are configured and editable by the admin.
+    """
+    require_admin_auth(request)
+    existing_test = TestManager.get_active_test()
+    if existing_test:
+        raise HTTPException(
+            status_code=400,
+            detail="An active test is already live. Please delete the current test using the Delete Test button before creating a new one."
+        )
+
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="Please upload at least 1 image to create a test.")
+
+    if len(files) > 50:
+        raise HTTPException(status_code=400, detail=f"Maximum 50 images allowed per test. You uploaded {len(files)} images.")
+
+    # Parse admin-specified answers if provided
+    answers_map: Dict[str, str] = {}
+    if answers_json:
+        try:
+            parsed = json.loads(answers_json)
+            if isinstance(parsed, dict):
+                answers_map = {str(k): str(v).strip().upper() for k, v in parsed.items()}
+            elif isinstance(parsed, list):
+                for idx, ans in enumerate(parsed):
+                    answers_map[str(idx + 1)] = str(ans).strip().upper()
+        except Exception:
+            pass
+
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
+    questions = []
+    saved_paths = []
+
+    try:
+        subject_clean = (subject or "General").strip() or "General"
+        test_title = (title or "Disha Academy Image Assessment").strip() or "Disha Academy Image Assessment"
+
+        for idx, file in enumerate(files):
+            q_no = idx + 1
+            filename = file.filename or f"question_{q_no}.jpg"
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in allowed_exts:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File #{q_no} ('{filename}') has an unsupported format. Allowed formats: PNG, JPG, JPEG, WEBP."
+                )
+
+            safe_filename = f"qimg_q{q_no}_{uuid.uuid4().hex[:8]}{ext}"
+            target_path = os.path.join(QUESTION_IMAGES_DIR, safe_filename)
+
+            optimize_and_save_uploaded_image(file, target_path)
+            saved_paths.append(target_path)
+
+            img_url = f"/static/uploads/questions/{safe_filename}"
+
+            correct_ans = answers_map.get(str(q_no), "A")
+            if correct_ans not in ["A", "B", "C", "D"]:
+                correct_ans = "A"
+
+            questions.append({
+                "id": q_no,
+                "q_no": q_no,
+                "text": f"Question {q_no}",
+                "options": [
+                    {"key": "A", "text": "Option A", "image_url": None},
+                    {"key": "B", "text": "Option B", "image_url": None},
+                    {"key": "C", "text": "Option C", "image_url": None},
+                    {"key": "D", "text": "Option D", "image_url": None}
+                ],
+                "correct_answer": correct_ans,
+                "answer_auto_detected": False,
+                "image_url": img_url,
+                "subject": subject_clean,
+                "marks": 1,
+                "negative_marks": 0.0,
+                "explanation": None
+            })
+
+        test_data = {
+            "id": "test_" + uuid.uuid4().hex[:8],
+            "title": test_title,
+            "subjects": [subject_clean],
+            "duration_minutes": duration if duration > 0 else 30,
+            "total_questions": len(questions),
+            "questions": questions,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "pdf_filename": None,
+            "test_type": "image"
+        }
+
+        active_test = TestManager.set_active_test(test_data)
+        return {
+            "success": True,
+            "message": f"Successfully created Image Test with {len(questions)} questions!",
+            "test": active_test
+        }
+
+    except HTTPException:
+        for p in saved_paths:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
+        raise
+    except Exception as e:
+        for p in saved_paths:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
+        raise HTTPException(status_code=400, detail=f"Failed to create test from images: {str(e)}")
+
 @app.delete("/api/admin/delete-test")
 async def delete_active_test(request: Request):
     """Deletes the active test so a new test can be uploaded."""
@@ -292,38 +457,6 @@ async def update_question_answer(request: Request, payload: UpdateQuestionAnswer
 
 class RemoveQuestionImageRequest(BaseModel):
     q_no: int
-
-def optimize_and_save_uploaded_image(upload_file: UploadFile, target_path: str, max_width: int = 1200):
-    """
-    Compresses and auto-optimizes uploaded mobile screenshots and diagram images.
-    Converts huge 3-5MB phone screenshots into crisp ~60-120KB images so tests load instantly on mobile data.
-    """
-    ext = os.path.splitext(target_path)[1].lower()
-    try:
-        from PIL import Image, ImageOps
-        img = Image.open(upload_file.file)
-        img = ImageOps.exif_transpose(img)
-        if img.width > max_width:
-            ratio = max_width / float(img.width)
-            new_height = int(float(img.height) * float(ratio))
-            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
-        
-        if ext in [".jpg", ".jpeg"]:
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            img.save(target_path, "JPEG", quality=85, optimize=True)
-        elif ext == ".png":
-            img.save(target_path, "PNG", optimize=True)
-        elif ext == ".webp":
-            img.save(target_path, "WEBP", quality=85)
-        else:
-            upload_file.file.seek(0)
-            with open(target_path, "wb") as buffer:
-                shutil.copyfileobj(upload_file.file, buffer)
-    except Exception:
-        upload_file.file.seek(0)
-        with open(target_path, "wb") as buffer:
-            shutil.copyfileobj(upload_file.file, buffer)
 
 @app.post("/api/admin/upload-question-image")
 async def upload_question_image(

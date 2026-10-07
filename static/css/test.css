@@ -249,6 +249,25 @@
     margin-bottom: 2rem;
 }
 
+.cbt-options-list.compact-options-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.85rem;
+}
+
+@media (max-width: 850px) {
+    .cbt-options-list.compact-options-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.cbt-question-card .q-diagram-img {
+    max-height: 520px;
+    max-width: 100%;
+    width: auto;
+    object-fit: contain;
+}
+
 .cbt-option-item {
     display: flex;
     align-items: center;

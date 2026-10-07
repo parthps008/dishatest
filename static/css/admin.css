@@ -667,3 +667,77 @@
         flex: 1 1 100%;
     }
 }
+
+/* ===================================================
+   Test Creation Menu Switcher & Image Test Uploader
+   =================================================== */
+.creation-menu-nav {
+    display: inline-flex;
+    background: #edf2f7;
+    padding: 4px;
+    border-radius: var(--radius-full);
+    border: 1px solid #cbd5e1;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.creation-menu-btn {
+    border: none;
+    background: transparent;
+    padding: 0.45rem 1.15rem;
+    border-radius: var(--radius-full);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.creation-menu-btn:hover {
+    color: var(--primary-navy);
+}
+
+.creation-menu-btn.active {
+    background: var(--primary-navy);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(13, 34, 64, 0.2);
+}
+
+.creation-menu-btn.active i {
+    color: var(--accent-gold) !important;
+}
+
+.img-table-thumb {
+    width: 65px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    cursor: zoom-in;
+    background: #ffffff;
+    transition: transform 0.15s ease;
+    display: block;
+}
+
+.img-table-thumb:hover {
+    transform: scale(1.15);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.image-q-ans-select {
+    font-weight: 700;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    background: #f0fdf4;
+    cursor: pointer;
+    font-size: 0.86rem;
+    width: 100%;
+    max-width: 160px;
+}

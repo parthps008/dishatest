@@ -195,6 +195,12 @@ function loadQuestion(index) {
     
     if (optionsContainer) {
         const options = normalizeOptions(q.options);
+        const isCompact = options.length === 4 && options.every(opt => !opt.image_url && (!opt.text || opt.text.trim().length <= 25));
+        if (isCompact) {
+            optionsContainer.classList.add('compact-options-grid');
+        } else {
+            optionsContainer.classList.remove('compact-options-grid');
+        }
         let html = "";
         options.forEach(opt => {
             const isChecked = (selectedOption === opt.key);
