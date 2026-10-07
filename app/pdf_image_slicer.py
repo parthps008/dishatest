@@ -3,12 +3,39 @@ import re
 import uuid
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional, Any
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 import pdfplumber
 
-from app.pdf_parser import extract_text_from_pdf, detect_test_meta, extract_answer_keys
+from app.pdf_parser import detect_test_meta, extract_answer_keys
 
-STRICT_Q_RE = re.compile(r'^(?:Q(?:uestion)?[\.\s_]*)?(\d{1,3})[\.\)\:\-](?!\d)', re.IGNORECASE)
+# Universal question marker regex:
+# Marker with prefix: e.g. Q1, Q.1, Question 1, Que 1, Q-1, Q.No. 1, etc.
+PREFIXED_Q_RE = re.compile(
+    r'^(?:Q(?:uestion|ue)?|Q\.?No\.?)[\.\s\-_]*(?:\(?|\[?)(\d{1,3})(?:\)?|\]?)(?:[\.\)\:\-]|\s|$)',
+    re.IGNORECASE
+)
+# Marker without prefix: MUST have delimiter e.g. '1.', '1)', '(1)', '[1]', '1:', '1-'
+DELIMITED_NUM_RE = re.compile(
+    r'^(?:(?:\(?|\[?)(\d{1,3})(?:\)|\])|(\d{1,3})[\.\)\:\-]|(\d{1,3})\s+[-–])(?!\d)',
+    re.IGNORECASE
+)
+PREFIX_WORD_RE = re.compile(r'^(?:Q(?:uestion|ue)?|Q\.?No\.?)$', re.IGNORECASE)
+NUM_TOKEN_RE = re.compile(r'^(?:\(?|\[?)(\d{1,3})(?:\)?|\]?)[\.\)\:\-]?$', re.IGNORECASE)
+
+def is_question_marker_token(text: str) -> Optional[int]:
+    """
+    Checks if a token represents a question number marker.
+    Distinguishes real question markers from decimals (1.5) or naked numbers (340).
+    """
+    m = PREFIXED_Q_RE.match(text)
+    if m:
+        return int(m.group(1))
+    m2 = DELIMITED_NUM_RE.match(text)
+    if m2:
+        val = m2.group(1) or m2.group(2) or m2.group(3)
+        return int(val) if val else None
+    return None
 
 def trim_white_borders(img: Image.Image, padding: int = 10, thresh: int = 245) -> Image.Image:
     """
@@ -17,7 +44,6 @@ def trim_white_borders(img: Image.Image, padding: int = 10, thresh: int = 245) -
     """
     try:
         gray = img.convert('L')
-        # Mask non-white pixels
         bw = gray.point(lambda p: 255 if p < thresh else 0, mode='1')
         bbox = bw.getbbox()
         if bbox:
@@ -32,7 +58,7 @@ def trim_white_borders(img: Image.Image, padding: int = 10, thresh: int = 245) -
 
 def optimize_and_save_crop(img: Image.Image, target_path: str, max_width: int = 1200) -> None:
     """
-    Ensures question crop is high-resolution, responsive, and compressed (~50-100KB JPEG).
+    Ensures question crop is high-resolution, responsive, and compressed (~50-90KB JPEG).
     """
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
@@ -44,6 +70,40 @@ def optimize_and_save_crop(img: Image.Image, target_path: str, max_width: int = 
     
     img.save(target_path, "JPEG", quality=82)
 
+def extract_column_question_markers(words: List[Dict], col_cutoff: Optional[float] = None) -> List[Tuple[int, Dict]]:
+    """
+    Scans words in a column and extracts question candidates.
+    Supports single token markers ('1.', 'Q1.') and 2-word markers ('Question' + '1.').
+    """
+    candidates = []
+    i = 0
+    num_words = len(words)
+    while i < num_words:
+        wd = words[i]
+        if col_cutoff and wd['top'] >= col_cutoff:
+            i += 1
+            continue
+
+        txt = wd['text'].strip()
+
+        # Check two-word 'Question 1' or 'Q. 1'
+        if PREFIX_WORD_RE.match(txt) and (i + 1 < num_words):
+            next_wd = words[i + 1]
+            m_num = NUM_TOKEN_RE.match(next_wd['text'].strip())
+            if m_num and (next_wd['x0'] - wd['x1'] < 25):
+                num = int(m_num.group(1))
+                if 1 <= num <= 500:
+                    candidates.append((num, wd))
+                    i += 2
+                    continue
+
+        num = is_question_marker_token(txt)
+        if num and 1 <= num <= 500:
+            candidates.append((num, wd))
+        i += 1
+
+    return candidates
+
 def slice_pdf_to_question_images(
     pdf_path: str,
     output_dir: str,
@@ -52,44 +112,17 @@ def slice_pdf_to_question_images(
     subject_override: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Automatically converts a question paper PDF into high-resolution sequential question snapshots:
-    1. Analyzes document layout (1-column vs 2-column papers).
-    2. Identifies question markers (e.g. 1., 2), Q1., etc.) using margin clustering to filter out false positives.
-    3. Crops each question bounding box cleanly without overlapping next questions or footers.
-    4. Auto-detects answer key table if present at the end of the PDF.
-    5. Saves optimized question images into output_dir and maps them sequentially (Q1 -> Crop 1, Q2 -> Crop 2...).
-    6. Returns structured TestData ready for activation and CBT student testing.
+    High-performance, flexible PDF question slicer:
+    - Supports all question paper styles (1-column, 2-column, math/diagram papers).
+    - Detects and clusters question markers to eliminate sentence numbers.
+    - Crops crisp question snapshots at 140 DPI without overlapping headers or footers.
+    - Parallelizes crop saving across multi-core CPUs for sub-second performance.
+    - Auto-extracts answer keys and metadata in a streamlined single pass.
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # 1. Extract text and metadata for title, subjects, duration, and answer keys
-    raw_text = extract_text_from_pdf(pdf_path)
-    detected_title, detected_subjects, detected_duration = detect_test_meta(raw_text, default_filename=pdf_path)
-    answer_keys = extract_answer_keys(raw_text, pdf_path=pdf_path)
-
-    # Title resolution
-    test_title = (title_override or "").strip()
-    if not test_title:
-        test_title = detected_title or "Disha Academy Assessment Test"
-
-    # Subject resolution
-    if subject_override and subject_override.strip():
-        subjects = [subject_override.strip()]
-    elif detected_subjects:
-        subjects = detected_subjects
-    else:
-        subjects = ["General"]
-
-    # Duration resolution
-    if override_duration and override_duration > 0:
-        duration = override_duration
-    elif detected_duration and detected_duration > 0:
-        duration = detected_duration
-    else:
-        duration = 30
-
-    # 2. Open PDF and slice questions
-    detected_crops = [] # List of tuples: (raw_q_num, crop_image)
+    page_texts = []
+    detected_crops = [] # (raw_q_num, crop_img)
 
     with pdfplumber.open(pdf_path) as pdf:
         for page_idx, page in enumerate(pdf.pages):
@@ -99,6 +132,11 @@ def slice_pdf_to_question_images(
             if not words or len(words) < 3:
                 continue
 
+            # Accumulate page text for metadata detection
+            p_text = page.extract_text(layout=False) or ""
+            if p_text:
+                page_texts.append(p_text)
+
             # Header detection (banner at top e.g. Disha Academy, Name, Marks)
             hw = [
                 wd for wd in words 
@@ -106,11 +144,11 @@ def slice_pdf_to_question_images(
             ]
             header_bottom = max(wd['bottom'] for wd in hw) if hw else 0
 
-            # Answer key heading cutoff (e.g. ANSWER KEY, SOLUTIONS, ANSWERS)
+            # Answer key heading cutoff (e.g. ANSWER KEY, SOLUTIONS, ANSWERS, KEY SHEET)
             ak_top = None
             for i, wd in enumerate(words):
                 txt = wd['text'].upper()
-                if 'ANSWER' in txt or 'SOLUTIONS' in txt:
+                if 'ANSWER' in txt or 'SOLUTIONS' in txt or 'KEY SHEET' in txt:
                     if i + 1 < len(words) and 'KEY' in words[i+1]['text'].upper():
                         ak_top = wd['top'] - 6
                         break
@@ -141,8 +179,8 @@ def slice_pdf_to_question_images(
                 (len(right_words) / len(body_words) > 0.20)
             )
 
-            # Render page at 150 DPI for crisp readability of math formulas, exponents, and diagrams
-            page_render = page.to_image(resolution=150).original
+            # Render page at 140 DPI (ultra-crisp, optimal memory & render performance)
+            page_render = page.to_image(resolution=140).original
             sx = page_render.width / w
             sy = page_render.height / h
 
@@ -157,15 +195,7 @@ def slice_pdf_to_question_images(
                 columns.append(('single', 0, w, body_words, ak_top))
 
             for col_name, col_left, col_right, col_words, col_cutoff in columns:
-                # Find candidate question markers in this column
-                candidates = []
-                for wd in col_words:
-                    if col_cutoff and wd['top'] >= col_cutoff:
-                        continue
-                    m = STRICT_Q_RE.match(wd['text'].strip())
-                    if m:
-                        candidates.append((int(m.group(1)), wd))
-
+                candidates = extract_column_question_markers(col_words, col_cutoff)
                 if not candidates:
                     continue
 
@@ -211,25 +241,34 @@ def slice_pdf_to_question_images(
                         trimmed_crop = trim_white_borders(raw_crop)
                         detected_crops.append((q_num, trimmed_crop))
 
-    # Fallback: if no question markers matched (e.g. 1 question per page/slide format)
+    # Fallback: if no numbered markers matched (e.g. 1 question per page/slide format)
     if not detected_crops:
         with pdfplumber.open(pdf_path) as pdf:
             for p_idx, page in enumerate(pdf.pages):
                 words = page.extract_words()
                 if not words:
                     continue
-                p_img = page.to_image(resolution=150).original
+                p_img = page.to_image(resolution=140).original
                 trimmed = trim_white_borders(p_img)
                 detected_crops.append((p_idx + 1, trimmed))
 
     if not detected_crops:
-        raise ValueError("Could not detect any questions in the uploaded PDF. Please verify that the PDF contains readable text and numbered questions.")
+        raise ValueError("Could not detect any questions in the uploaded PDF. Please verify that the PDF contains readable text and questions.")
 
-    # 3. Save question crops and construct sequential question mapping
-    questions = []
+    # Single-pass metadata extraction
+    full_text = "\n".join(page_texts)
+    detected_title, detected_subjects, detected_duration = detect_test_meta(full_text, default_filename=pdf_path)
+    answer_keys = extract_answer_keys(full_text, pdf_path=pdf_path)
+
+    test_title = (title_override or "").strip() or detected_title or "Disha Academy Assessment Test"
+    subjects = [subject_override.strip()] if (subject_override and subject_override.strip()) else (detected_subjects or ["General"])
+    duration = override_duration if (override_duration and override_duration > 0) else (detected_duration or 30)
+
+    # Parallelize image optimization and disk writing across CPU threads
     primary_subject = subjects[0] if subjects else "General"
 
-    for idx, (raw_num, crop_img) in enumerate(detected_crops):
+    def process_and_save_crop(item):
+        idx, (raw_num, crop_img) = item
         q_no = idx + 1
         safe_filename = f"qimg_slice_q{q_no}_{uuid.uuid4().hex[:8]}.jpg"
         target_path = os.path.join(output_dir, safe_filename)
@@ -237,7 +276,6 @@ def slice_pdf_to_question_images(
 
         img_url = f"/static/uploads/questions/{safe_filename}"
 
-        # Match answer key by sequential question number or raw extracted number
         correct_ans = answer_keys.get(q_no) or answer_keys.get(raw_num) or "A"
         correct_ans = str(correct_ans).strip().upper()
         if correct_ans in ["A", "B", "C", "D"]:
@@ -264,7 +302,14 @@ def slice_pdf_to_question_images(
             "negative_marks": 0.0,
             "explanation": None
         }
-        questions.append(q_data)
+        return (q_no, q_data)
+
+    max_workers = min(8, max(2, (os.cpu_count() or 2) * 2))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        processed_pairs = list(executor.map(process_and_save_crop, enumerate(detected_crops)))
+
+    processed_pairs.sort(key=lambda x: x[0])
+    questions = [p[1] for p in processed_pairs]
 
     test_data = {
         "id": "test_" + uuid.uuid4().hex[:8],

@@ -741,3 +741,41 @@
     width: 100%;
     max-width: 160px;
 }
+
+/* ===================================================
+   Circular Progress Loading Modal for PDF Slicing
+   =================================================== */
+@keyframes scaleUpModal {
+    from {
+        transform: scale(0.92);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.circular-progress-wrap {
+    filter: drop-shadow(0 4px 10px rgba(37, 99, 235, 0.15));
+}
+
+.slice-stages-flow .stage-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.slice-stages-flow .stage-step.active {
+    color: var(--primary-navy);
+    font-weight: 700;
+}
+
+.slice-stages-flow .stage-step.done {
+    color: var(--green);
+    font-weight: 700;
+}
+

@@ -604,6 +604,44 @@ function updatePdfSliceFileBadge(file) {
     }
 }
 
+// Circular Progress Helper for PDF Slicing
+function setSliceProgress(pct, statusTitle, statusDesc, stageIdx) {
+    const ring = document.getElementById('sliceProgressRing');
+    const percentEl = document.getElementById('sliceProgressPercent');
+    const titleEl = document.getElementById('sliceStatusTitle');
+    const descEl = document.getElementById('sliceStatusDesc');
+
+    const C = 314.16;
+    const clamped = Math.max(0, Math.min(100, pct));
+    if (ring) {
+        ring.style.strokeDashoffset = C - (clamped / 100) * C;
+    }
+    if (percentEl) {
+        percentEl.textContent = `${Math.round(clamped)}%`;
+    }
+    if (titleEl && statusTitle) {
+        titleEl.innerHTML = statusTitle;
+    }
+    if (descEl && statusDesc) {
+        descEl.textContent = statusDesc;
+    }
+
+    if (stageIdx !== undefined) {
+        for (let i = 1; i <= 5; i++) {
+            const step = document.getElementById(`stageStep${i}`);
+            if (step) {
+                if (i < stageIdx) {
+                    step.className = 'stage-step done';
+                } else if (i === stageIdx) {
+                    step.className = 'stage-step active';
+                } else {
+                    step.className = 'stage-step';
+                }
+            }
+        }
+    }
+}
+
 async function handlePdfSliceUpload(e) {
     if (e && e.preventDefault) e.preventDefault();
 
@@ -627,11 +665,36 @@ async function handlePdfSliceUpload(e) {
     const submitBtn = document.getElementById('generateSliceBtn');
     const submitBtnText = document.getElementById('generateSliceBtnText');
     const originalText = submitBtnText ? submitBtnText.innerHTML : 'Slice PDF & Generate Test';
+    const progressModal = document.getElementById('pdfSliceProgressModal');
 
     submitBtn.disabled = true;
     if (submitBtnText) {
-        submitBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Auto-Slicing PDF & Generating Questions...`;
+        submitBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing PDF & Generating Questions...`;
     }
+
+    // Open round circular loading modal
+    if (progressModal) {
+        progressModal.style.display = 'flex';
+    }
+    setSliceProgress(8, '<i class="fa-solid fa-spinner fa-spin text-navy"></i> Reading & Analyzing PDF...', 'Sending document to server for layout detection...', 1);
+
+    // Dynamic simulated stage progression while multi-threaded slicing processes
+    let currentPct = 8;
+    const progressTimer = setInterval(() => {
+        if (currentPct < 25) {
+            currentPct += 4;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-spinner fa-spin text-navy"></i> Detecting Layout & Columns...', 'Analyzing 1-column vs 2-column format...', 2);
+        } else if (currentPct < 55) {
+            currentPct += 5;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-spinner fa-spin text-navy"></i> Slicing Question Snapshots...', 'Cropping high-res snapshots of questions and diagrams...', 3);
+        } else if (currentPct < 85) {
+            currentPct += 4;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-spinner fa-spin text-navy"></i> Optimizing Math Formulas...', 'Compressing snapshots and trimming borders...', 3);
+        } else if (currentPct < 94) {
+            currentPct += 1;
+            setSliceProgress(currentPct, '<i class="fa-solid fa-spinner fa-spin text-navy"></i> Mapping Questions & Answer Keys...', 'Mapping options A, B, C, D sequentially...', 4);
+        }
+    }, 180);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -645,7 +708,10 @@ async function handlePdfSliceUpload(e) {
             body: formData
         });
 
+        clearInterval(progressTimer);
+
         if (response.status === 401) {
+            if (progressModal) progressModal.style.display = 'none';
             showToast('Session expired. Redirecting to admin login...', 'error');
             setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
             return;
@@ -654,16 +720,45 @@ async function handlePdfSliceUpload(e) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast(data.message || 'PDF sliced and test generated successfully!', 'success');
+            const totalQ = (data.test && data.test.total_questions) ? data.test.total_questions : 'all';
+            
+            // Set circle to 100% completed state
+            setSliceProgress(
+                100,
+                `<i class="fa-solid fa-circle-check text-green"></i> Completed! All ${totalQ} Test Questions Mapped!`,
+                `Successfully converted PDF into ${totalQ} question snapshots and activated test.`,
+                5
+            );
+
+            const ring = document.getElementById('sliceProgressRing');
+            const percentEl = document.getElementById('sliceProgressPercent');
+            const subEl = document.getElementById('sliceProgressSub');
+            if (ring) ring.style.stroke = '#10b981';
+            if (percentEl) percentEl.innerHTML = `<span style="color: #10b981;">100%</span>`;
+            if (subEl) {
+                subEl.textContent = 'COMPLETED';
+                subEl.style.color = '#10b981';
+            }
+
+            for (let i = 1; i <= 5; i++) {
+                const step = document.getElementById(`stageStep${i}`);
+                if (step) step.className = 'stage-step done';
+            }
+
+            showToast(`Completed! All ${totalQ} test questions mapped!`, 'success');
             setTimeout(() => {
                 window.location.reload();
-            }, 1200);
+            }, 1400);
         } else {
+            clearInterval(progressTimer);
+            if (progressModal) progressModal.style.display = 'none';
             showToast(data.detail || 'Failed to auto-slice PDF.', 'error');
             submitBtn.disabled = false;
             if (submitBtnText) submitBtnText.innerHTML = originalText;
         }
     } catch (err) {
+        clearInterval(progressTimer);
+        if (progressModal) progressModal.style.display = 'none';
         console.error(err);
         showToast('Network error while slicing PDF.', 'error');
         submitBtn.disabled = false;
