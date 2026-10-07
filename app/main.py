@@ -30,8 +30,10 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 UPLOADS_DIR = os.path.join(BASE_DIR, "data", "uploads")
 QUESTION_IMAGES_DIR = os.path.join(STATIC_DIR, "uploads", "questions")
+PAPER_PREVIEWS_DIR = os.path.join(STATIC_DIR, "uploads", "paper_previews")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(QUESTION_IMAGES_DIR, exist_ok=True)
+os.makedirs(PAPER_PREVIEWS_DIR, exist_ok=True)
 
 app = FastAPI(title="Disha Academy Test Portal")
 
@@ -604,6 +606,139 @@ async def create_photo_test_api(
                     os.remove(p)
                 except Exception:
                     pass
+
+@app.post("/api/admin/analyze-paper-layout")
+async def analyze_paper_layout_endpoint(request: Request, file: UploadFile = File(...)):
+    """
+    Analyzes a test paper photo and returns visual cut box coordinates for admin review (/train_image).
+    """
+    require_admin_auth(request)
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
+    filename = file.filename or "paper.jpg"
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail="Unsupported image format. Allowed: PNG, JPG, JPEG, WEBP.")
+
+    preview_id = f"prev_{uuid.uuid4().hex[:10]}"
+    saved_name = f"{preview_id}{ext}"
+    saved_path = os.path.join(PAPER_PREVIEWS_DIR, saved_name)
+
+    try:
+        with open(saved_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        from app.photo_paper_slicer import analyze_paper_layout_and_slices
+        analysis = analyze_paper_layout_and_slices(saved_path)
+
+        return {
+            "success": True,
+            "preview_id": preview_id,
+            "image_url": f"/static/uploads/paper_previews/{saved_name}",
+            "filename": filename,
+            "width": analysis["width"],
+            "height": analysis["height"],
+            "detected_title": analysis["detected_title"],
+            "detected_subjects": analysis["detected_subjects"],
+            "detected_duration": analysis["detected_duration"],
+            "slices": analysis["slices"]
+        }
+    except Exception as e:
+        if os.path.exists(saved_path):
+            try: os.remove(saved_path)
+            except Exception: pass
+        raise HTTPException(status_code=400, detail=f"Failed to analyze paper layout: {str(e)}")
+
+
+class CalibratedSliceItem(BaseModel):
+    q_no: Optional[int] = None
+    ymin: int
+    xmin: int
+    ymax: int
+    xmax: int
+    correct_answer: Optional[str] = "A"
+    subject: Optional[str] = "General"
+
+class CalibratedPageItem(BaseModel):
+    preview_id: str
+    slices: List[CalibratedSliceItem]
+
+class CreateCalibratedTestPayload(BaseModel):
+    pages: List[CalibratedPageItem]
+    duration: int = 30
+    title: Optional[str] = None
+    subject: Optional[str] = None
+
+@app.post("/api/admin/create-calibrated-photo-test")
+async def create_calibrated_photo_test(request: Request, payload: CreateCalibratedTestPayload):
+    """
+    Creates a test from verified / calibrated slices submitted by admin (/train_image layout review).
+    """
+    require_admin_auth(request)
+    existing_test = TestManager.get_active_test()
+    if existing_test:
+        raise HTTPException(
+            status_code=400,
+            detail="An active test is already live. Please delete the current test before creating a new one."
+        )
+
+    if not payload.pages or len(payload.pages) == 0:
+        raise HTTPException(status_code=400, detail="Please provide at least 1 page of questions.")
+
+    from app.photo_paper_slicer import crop_and_save_custom_slices
+
+    all_questions = []
+    q_counter = 1
+    primary_subject = (payload.subject or "General").strip() or "General"
+
+    for page in payload.pages:
+        # Locate preview file
+        found_path = None
+        for ext in [".jpg", ".jpeg", ".png", ".webp"]:
+            candidate = os.path.join(PAPER_PREVIEWS_DIR, f"{page.preview_id}{ext}")
+            if os.path.exists(candidate):
+                found_path = candidate
+                break
+
+        if not found_path:
+            raise HTTPException(status_code=400, detail=f"Preview page {page.preview_id} not found on server.")
+
+        raw_slices = [s.model_dump() for s in page.slices]
+        page_qs = crop_and_save_custom_slices(
+            img_path=found_path,
+            slices=raw_slices,
+            output_dir=QUESTION_IMAGES_DIR,
+            start_q_no=q_counter,
+            primary_subject=primary_subject
+        )
+        all_questions.extend(page_qs)
+        q_counter += len(page_qs)
+
+    if not all_questions:
+        raise HTTPException(status_code=400, detail="Could not crop any questions from provided slices.")
+
+    title = (payload.title or "").strip() or "Disha Academy Calibrated Paper Assessment"
+    subjects = [primary_subject]
+    duration = payload.duration if payload.duration > 0 else 30
+
+    test_data = {
+        "id": "test_" + uuid.uuid4().hex[:8],
+        "title": title,
+        "subjects": subjects,
+        "duration_minutes": duration,
+        "total_questions": len(all_questions),
+        "questions": all_questions,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "pdf_filename": None,
+        "test_type": "photo_paper"
+    }
+
+    active_test = TestManager.set_active_test(test_data)
+    return {
+        "success": True,
+        "message": f"Successfully created test with {active_test['total_questions']} mapped questions!",
+        "test": active_test
+    }
+
 
 @app.delete("/api/admin/delete-test")
 async def delete_active_test(request: Request):

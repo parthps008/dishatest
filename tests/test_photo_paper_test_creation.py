@@ -190,5 +190,59 @@ class TestPhotoPaperTestCreation(unittest.TestCase):
         self.assertEqual(res2.status_code, 400)
         self.assertIn("An active test is already live", res2.json()["detail"])
 
+    def test_api_analyze_and_create_calibrated_photo_test(self):
+        """Verify layout analysis and calibrated test creation workflow."""
+        photo_path = os.path.join(BASE_DIR, "sample_tests", "kendriya_math_8q.jpg")
+        self.assertTrue(os.path.exists(photo_path))
+
+        with open(photo_path, "rb") as f:
+            file_bytes = f.read()
+
+        # Step 1: Analyze layout
+        res_analyze = self.client.post(
+            "/api/admin/analyze-paper-layout",
+            files={"file": ("kendriya_math_8q.jpg", file_bytes, "image/jpeg")},
+            cookies=self.cookies
+        )
+        self.assertEqual(res_analyze.status_code, 200, res_analyze.text)
+        data_analyze = res_analyze.json()
+        self.assertTrue(data_analyze["success"])
+        self.assertIn("preview_id", data_analyze)
+        self.assertGreaterEqual(len(data_analyze["slices"]), 8)
+
+        preview_id = data_analyze["preview_id"]
+        slices = data_analyze["slices"]
+
+        # Step 2: Create calibrated test using verified slices
+        payload = {
+            "pages": [
+                {
+                    "preview_id": preview_id,
+                    "slices": slices
+                }
+            ],
+            "duration": 45,
+            "title": "Calibrated KV Paper Exam",
+            "subject": "Mathematics"
+        }
+
+        res_create = self.client.post(
+            "/api/admin/create-calibrated-photo-test",
+            json=payload,
+            cookies=self.cookies
+        )
+        self.assertEqual(res_create.status_code, 200, res_create.text)
+        data_create = res_create.json()
+        self.assertTrue(data_create["success"])
+        self.assertEqual(data_create["test"]["title"], "Calibrated KV Paper Exam")
+        self.assertEqual(data_create["test"]["duration_minutes"], 45)
+        self.assertEqual(data_create["test"]["total_questions"], len(slices))
+
+        # Verify active test matches
+        active = TestManager.get_active_test()
+        self.assertIsNotNone(active)
+        self.assertEqual(active["title"], "Calibrated KV Paper Exam")
+
 if __name__ == "__main__":
     unittest.main()
+

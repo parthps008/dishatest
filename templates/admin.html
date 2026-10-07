@@ -494,9 +494,14 @@
                             <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
                                 <i class="fa-solid fa-microscope text-green"></i> AI Question Boundary & Diagram Detection enabled
                             </div>
-                            <button type="submit" id="generatePhotoPaperBtn" class="btn btn-primary btn-lg" style="width: 100%;">
-                                <i class="fa-solid fa-camera"></i> <span id="generatePhotoPaperBtnText">Scan Photos & Generate Test</span>
-                            </button>
+                            <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+                                <button type="submit" id="generatePhotoPaperBtn" class="btn btn-primary btn-lg" style="flex: 1; min-width: 200px;">
+                                    <i class="fa-solid fa-bolt"></i> <span id="generatePhotoPaperBtnText">Instant Auto-Generate</span>
+                                </button>
+                                <button type="button" id="calibratePhotoPaperBtn" class="btn btn-outline btn-lg" style="border: 2px solid var(--accent-gold); color: var(--primary-navy); font-weight: 700; background: #fffdf5; display: inline-flex; align-items: center; gap: 6px;" onclick="startInteractiveLayoutReview()">
+                                    <i class="fa-solid fa-crop-simple text-gold"></i> <span>Review & Calibrate (/train_image)</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -765,6 +770,90 @@
             <span id="stageStep3" class="stage-step"><i class="fa-solid fa-scissors"></i> Slice</span>
             <span id="stageStep4" class="stage-step"><i class="fa-solid fa-map-location-dot"></i> Map Qs</span>
             <span id="stageStep5" class="stage-step"><i class="fa-solid fa-circle-check"></i> Live</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Interactive Paper Layout Review & Calibration (/train_image) -->
+<div id="photoCalibrateModal" class="modal-overlay" style="display: none; z-index: 1060; backdrop-filter: blur(8px); background: rgba(13, 34, 64, 0.85);">
+    <div class="modal-content" style="max-width: 1100px; width: 95%; max-height: 92vh; display: flex; flex-direction: column; padding: 1.5rem; border-radius: var(--radius-lg); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+        <!-- Modal Header -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 0.75rem; border-bottom: 1.5px solid #e2e8f0;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.25rem; color: var(--primary-navy); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-crop-simple text-gold"></i>
+                    <span>Layout Calibration & Cut Inspector</span>
+                    <span style="font-size: 0.75rem; font-weight: 700; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 9999px;">/train_image</span>
+                </h3>
+                <p style="margin: 3px 0 0; font-size: 0.82rem; color: var(--text-muted);">
+                    Inspect detected question cut boxes directly on your paper scan. Every question is mapped with its 4 options. Nudge dividers or adjust answers if needed before publishing.
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.9rem;" onclick="closePhotoCalibrateModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body: Split view (Left: Paper Viewer with Green Cut Overlays; Right: Question Cards & Controls) -->
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.25rem; margin-top: 1rem; overflow: hidden; flex: 1;">
+            <!-- Left: Paper Image with Overlay Boxes -->
+            <div style="display: flex; flex-direction: column; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <span style="font-weight: 700; font-size: 0.82rem; color: var(--text-secondary);">
+                        <i class="fa-solid fa-eye text-navy"></i> Visual Cut Boxes Overlay
+                    </span>
+                    <span id="calibPageIndicator" style="font-size: 0.78rem; font-weight: 700; color: var(--accent-maroon);">
+                        Page 1 of 1
+                    </span>
+                </div>
+                <div id="calibPaperContainer" style="position: relative; overflow-y: auto; max-height: 58vh; border: 2px solid #cbd5e1; border-radius: var(--radius-sm); background: #1e293b; text-align: center;">
+                    <img id="calibPaperImage" src="" alt="Paper Scan Preview" style="width: 100%; display: block; user-select: none;" />
+                    <div id="calibOverlayBoxes" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                </div>
+            </div>
+
+            <!-- Right: Questions Slices List & Controls -->
+            <div style="display: flex; flex-direction: column; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <span id="calibQuestionCountBadge" class="badge badge-green" style="font-size: 0.82rem; font-weight: 700;">
+                        0 Questions Detected
+                    </span>
+                    <div style="display: flex; gap: 0.35rem;">
+                        <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 3px 8px;" onclick="addCalibQuestionDivider()">
+                            <i class="fa-solid fa-plus text-green"></i> Add Split
+                        </button>
+                        <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 3px 8px;" onclick="resetCalibToAutoDetected()">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Questions List Container -->
+                <div id="calibQuestionsList" style="overflow-y: auto; max-height: 58vh; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 4px;">
+                    <!-- Dynamically populated via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer: Meta & Action Button -->
+        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin: 0;">Duration:</label>
+                    <input type="number" id="calibDurationInput" class="form-control" style="width: 75px; padding: 4px 8px; font-size: 0.85rem;" min="1" max="600" value="30">
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">mins</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin: 0;">Title:</label>
+                    <input type="text" id="calibTitleInput" class="form-control" style="width: 220px; padding: 4px 8px; font-size: 0.85rem;" placeholder="Test Title">
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-outline" onclick="closePhotoCalibrateModal()">Cancel</button>
+                <button type="button" id="confirmCalibTestBtn" class="btn btn-primary" style="background: #16a34a; border-color: #16a34a; font-weight: 700;" onclick="submitCalibratedTest()">
+                    <i class="fa-solid fa-circle-check"></i> <span id="confirmCalibTestBtnText">Confirm & Create Test</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>

@@ -937,7 +937,7 @@ async function handlePhotoPaperUpload(e) {
 
     const submitBtn = document.getElementById('generatePhotoPaperBtn');
     const submitBtnText = document.getElementById('generatePhotoPaperBtnText');
-    const originalText = submitBtnText ? submitBtnText.innerHTML : 'Scan Photos & Generate Test';
+    const originalText = submitBtnText ? submitBtnText.innerHTML : 'Instant Auto-Generate';
     const progressModal = document.getElementById('pdfSliceProgressModal');
 
     submitBtn.disabled = true;
@@ -948,7 +948,7 @@ async function handlePhotoPaperUpload(e) {
     // Configure modal for Paper Photo AI Vision
     const modalTitleEl = document.getElementById('progressModalTitle');
     const modalSubEl = document.getElementById('progressModalSub');
-    if (modalTitleEl) modalTitleEl.textContent = 'AI Vision Question Auto-Crop';
+    if (modalTitleEl) modalTitleEl.textContent = 'Universal Paper Question Auto-Crop';
     if (modalSubEl) modalSubEl.textContent = `Analyzing ${selectedPhotoPaperFilesArray.length} paper photo(s) & extracting question snapshots...`;
 
     // Reset ring styles
@@ -964,16 +964,16 @@ async function handlePhotoPaperUpload(e) {
         progressModal.style.display = 'flex';
     }
 
-    setSliceProgress(10, '<i class="fa-solid fa-camera fa-spin text-navy"></i> Reading & Preprocessing Photos...', `Uploading ${selectedPhotoPaperFilesArray.length} test paper scan(s)...`, 1);
+    setSliceProgress(10, '<i class="fa-solid fa-camera fa-spin text-navy"></i> Pre-compressing & Uploading Photos...', `Optimizing ${selectedPhotoPaperFilesArray.length} test paper scan(s)...`, 1);
 
     let currentPct = 10;
     const progressTimer = setInterval(() => {
         if (currentPct < 30) {
             currentPct += 5;
-            setSliceProgress(currentPct, '<i class="fa-solid fa-microscope fa-spin text-navy"></i> Running AI Vision OCR...', 'Detecting question numbers and columns across paper pages...', 2);
+            setSliceProgress(currentPct, '<i class="fa-solid fa-microscope fa-spin text-navy"></i> Running Layout & OCR Engine...', 'Detecting question markers and option clusters across pages...', 2);
         } else if (currentPct < 60) {
             currentPct += 5;
-            setSliceProgress(currentPct, '<i class="fa-solid fa-crop-simple fa-spin text-navy"></i> Detecting Question Boundaries...', 'Extracting MCQs, diagrams, and formulas...', 3);
+            setSliceProgress(currentPct, '<i class="fa-solid fa-crop-simple fa-spin text-navy"></i> Detecting Question Boundaries...', 'Grouping options (A, B, C, D) and math formulas...', 3);
         } else if (currentPct < 85) {
             currentPct += 4;
             setSliceProgress(currentPct, '<i class="fa-solid fa-scissors fa-spin text-navy"></i> Slicing & Optimizing Question Snapshots...', 'Trimming white borders and compressing images for mobile...', 3);
@@ -981,10 +981,17 @@ async function handlePhotoPaperUpload(e) {
             currentPct += 1;
             setSliceProgress(currentPct, '<i class="fa-solid fa-map-location-dot fa-spin text-navy"></i> Mapping Questions & ABCD Options...', 'Sequentially chaining questions (Q1..Qn)...', 4);
         }
-    }, 220);
+    }, 200);
+
+    // Fast client pre-compression for paper photos
+    const filesToUpload = [];
+    for (let i = 0; i < selectedPhotoPaperFilesArray.length; i++) {
+        const comp = await fastCompressImage(selectedPhotoPaperFilesArray[i], 1600, 0.85);
+        filesToUpload.push(comp);
+    }
 
     const formData = new FormData();
-    selectedPhotoPaperFilesArray.forEach(file => {
+    filesToUpload.forEach(file => {
         formData.append('files', file);
     });
     formData.append('duration', duration);
@@ -1049,6 +1056,359 @@ async function handlePhotoPaperUpload(e) {
         showToast('Network error while processing test photos.', 'error');
         submitBtn.disabled = false;
         if (submitBtnText) submitBtnText.innerHTML = originalText;
+    }
+}
+
+// ===================================================
+// Interactive Layout Review & Calibration (/train_image)
+// ===================================================
+let calibPagesData = [];
+let currentCalibPageIndex = 0;
+
+async function startInteractiveLayoutReview() {
+    if (!selectedPhotoPaperFilesArray || selectedPhotoPaperFilesArray.length === 0) {
+        showToast('Please select at least 1 test paper photo first.', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('photoCalibrateModal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    document.getElementById('calibOverlayBoxes').innerHTML = '';
+    document.getElementById('calibQuestionsList').innerHTML = `
+        <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-navy);"></i>
+            <p style="margin-top: 0.85rem; font-weight: 700; color: var(--primary-navy);">Analyzing paper layout & grouping questions...</p>
+            <p style="font-size: 0.82rem; margin: 0;">Detecting question anchors and option boundaries (A, B, C, D)...</p>
+        </div>
+    `;
+
+    calibPagesData = [];
+    currentCalibPageIndex = 0;
+
+    try {
+        for (let i = 0; i < selectedPhotoPaperFilesArray.length; i++) {
+            const file = selectedPhotoPaperFilesArray[i];
+            const compFile = await fastCompressImage(file, 1600, 0.85);
+
+            const formData = new FormData();
+            formData.append('file', compFile);
+
+            const res = await fetch('/api/admin/analyze-paper-layout', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.status === 401) {
+                modal.style.display = 'none';
+                showToast('Session expired. Redirecting to admin login...', 'error');
+                setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
+                return;
+            }
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                calibPagesData.push({
+                    preview_id: data.preview_id,
+                    image_url: data.image_url,
+                    filename: file.name,
+                    width: data.width,
+                    height: data.height,
+                    detected_title: data.detected_title,
+                    detected_subject: (data.detected_subjects && data.detected_subjects[0]) || 'General',
+                    detected_duration: data.detected_duration || 30,
+                    slices: JSON.parse(JSON.stringify(data.slices)),
+                    original_slices: JSON.parse(JSON.stringify(data.slices))
+                });
+            } else {
+                throw new Error(data.detail || `Failed to analyze page ${i + 1}`);
+            }
+        }
+
+        if (calibPagesData.length === 0) {
+            throw new Error('No pages could be analyzed.');
+        }
+
+        const p1 = calibPagesData[0];
+        const titleInput = document.getElementById('calibTitleInput');
+        const durationInput = document.getElementById('calibDurationInput');
+        if (titleInput) {
+            titleInput.value = document.getElementById('photoPaperTitleInput')?.value.trim() || p1.detected_title || 'Disha Academy Paper Assessment';
+        }
+        if (durationInput) {
+            durationInput.value = getSelectedPhotoPaperDuration() || p1.detected_duration || 30;
+        }
+
+        loadCalibPage(0);
+    } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Error analyzing paper layout.', 'error');
+        modal.style.display = 'none';
+    }
+}
+
+function closePhotoCalibrateModal() {
+    const modal = document.getElementById('photoCalibrateModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function loadCalibPage(index) {
+    if (index < 0 || index >= calibPagesData.length) return;
+    currentCalibPageIndex = index;
+    const page = calibPagesData[index];
+
+    const img = document.getElementById('calibPaperImage');
+    if (img) {
+        img.src = page.image_url;
+    }
+
+    const pageInd = document.getElementById('calibPageIndicator');
+    if (pageInd) {
+        if (calibPagesData.length > 1) {
+            pageInd.innerHTML = `
+                <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 6px;" ${index === 0 ? 'disabled' : ''} onclick="loadCalibPage(${index - 1})">◀ Prev</button>
+                Page ${index + 1} of ${calibPagesData.length}
+                <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 6px;" ${index === calibPagesData.length - 1 ? 'disabled' : ''} onclick="loadCalibPage(${index + 1})">Next ▶</button>
+            `;
+        } else {
+            pageInd.textContent = 'Page 1 of 1';
+        }
+    }
+
+    renderCalibState();
+}
+
+function renderCalibState() {
+    const page = calibPagesData[currentCalibPageIndex];
+    if (!page) return;
+
+    const countBadge = document.getElementById('calibQuestionCountBadge');
+    if (countBadge) {
+        countBadge.textContent = `${page.slices.length} Questions Detected`;
+    }
+
+    // 1. Render Overlay boxes on image
+    const overlay = document.getElementById('calibOverlayBoxes');
+    if (overlay) {
+        overlay.innerHTML = '';
+        const W = page.width || 1;
+        const H = page.height || 1;
+
+        page.slices.forEach((sl, idx) => {
+            const topPct = (sl.ymin / H) * 100;
+            const leftPct = (sl.xmin / W) * 100;
+            const heightPct = Math.max(0.5, ((sl.ymax - sl.ymin) / H) * 100);
+            const widthPct = Math.max(1, ((sl.xmax - sl.xmin) / W) * 100);
+
+            const box = document.createElement('div');
+            box.id = `calibBox_${idx}`;
+            box.style.cssText = `
+                position: absolute;
+                top: ${topPct}%;
+                left: ${leftPct}%;
+                width: ${widthPct}%;
+                height: ${heightPct}%;
+                border: 2px solid #22c55e;
+                background: rgba(34, 197, 94, 0.14);
+                box-sizing: border-box;
+                display: flex;
+                align-items: flex-start;
+                justify-content: flex-start;
+                padding: 2px 4px;
+                transition: background 0.15s ease, border-color 0.15s ease;
+            `;
+
+            box.innerHTML = `
+                <span style="background: #16a34a; color: #ffffff; font-size: 0.68rem; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">
+                    Q${idx + 1} (${sl.correct_answer || 'A'})
+                </span>
+            `;
+            overlay.appendChild(box);
+        });
+    }
+
+    // 2. Render Question Cards in right pane
+    const list = document.getElementById('calibQuestionsList');
+    if (list) {
+        list.innerHTML = '';
+        page.slices.forEach((sl, idx) => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #ffffff;
+                border: 1.5px solid #e2e8f0;
+                border-left: 4px solid #16a34a;
+                border-radius: var(--radius-sm);
+                padding: 0.55rem 0.75rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.4rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            `;
+
+            const currentAns = (sl.correct_answer || 'A').toUpperCase();
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong style="color: var(--primary-navy); font-size: 0.88rem;">Question ${idx + 1}</strong>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 5px; font-size: 0.7rem;" title="Nudge Top Boundary Up" onclick="nudgeCalibBoundary(${idx}, 'ymin', -10)">▲ Top</button>
+                        <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 5px; font-size: 0.7rem;" title="Nudge Bottom Boundary Down" onclick="nudgeCalibBoundary(${idx}, 'ymax', 10)">▼ Bot</button>
+                        <button type="button" style="border: none; background: transparent; cursor: pointer; color: #ef4444; font-size: 0.82rem; margin-left: 4px;" title="Delete this question slice" onclick="removeCalibSlice(${idx})">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+                    <span style="color: var(--text-muted);">Y: ${sl.ymin}px – ${sl.ymax}px</span>
+                    <div style="display: inline-flex; align-items: center; gap: 4px;">
+                        <span style="font-weight: 700; color: #334155; font-size: 0.75rem;">Ans:</span>
+                        <div style="display: inline-flex; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;">
+                            ${['A', 'B', 'C', 'D'].map(k => `
+                                <button type="button" style="padding: 1px 7px; font-size: 0.75rem; font-weight: 700; border: none; cursor: pointer; background: ${currentAns === k ? '#16a34a' : '#f8fafc'}; color: ${currentAns === k ? '#ffffff' : '#334155'};" onclick="setCalibQuestionAnswer(${idx}, '${k}')">
+                                    ${k}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            card.addEventListener('mouseenter', () => {
+                const b = document.getElementById(`calibBox_${idx}`);
+                if (b) {
+                    b.style.background = 'rgba(34, 197, 94, 0.35)';
+                    b.style.borderColor = '#15803d';
+                }
+            });
+            card.addEventListener('mouseleave', () => {
+                const b = document.getElementById(`calibBox_${idx}`);
+                if (b) {
+                    b.style.background = 'rgba(34, 197, 94, 0.14)';
+                    b.style.borderColor = '#22c55e';
+                }
+            });
+
+            list.appendChild(card);
+        });
+    }
+}
+
+function setCalibQuestionAnswer(qIdx, ans) {
+    const page = calibPagesData[currentCalibPageIndex];
+    if (page && page.slices[qIdx]) {
+        page.slices[qIdx].correct_answer = ans;
+        renderCalibState();
+    }
+}
+
+function nudgeCalibBoundary(qIdx, key, delta) {
+    const page = calibPagesData[currentCalibPageIndex];
+    if (!page || !page.slices[qIdx]) return;
+    const sl = page.slices[qIdx];
+    if (key === 'ymin') {
+        sl.ymin = Math.max(0, sl.ymin + delta);
+    } else if (key === 'ymax') {
+        sl.ymax = Math.min(page.height, sl.ymax + delta);
+    }
+    renderCalibState();
+}
+
+function removeCalibSlice(qIdx) {
+    const page = calibPagesData[currentCalibPageIndex];
+    if (!page || !page.slices[qIdx]) return;
+    page.slices.splice(qIdx, 1);
+    page.slices.forEach((s, i) => { s.q_no = i + 1; });
+    renderCalibState();
+}
+
+function addCalibQuestionDivider() {
+    const page = calibPagesData[currentCalibPageIndex];
+    if (!page || page.slices.length === 0) return;
+
+    const last = page.slices[page.slices.length - 1];
+    const midY = Math.round((last.ymin + last.ymax) / 2);
+
+    const newSlice = {
+        q_no: page.slices.length + 1,
+        ymin: midY,
+        xmin: last.xmin,
+        ymax: last.ymax,
+        xmax: last.xmax,
+        correct_answer: 'A'
+    };
+
+    last.ymax = midY;
+    page.slices.push(newSlice);
+    renderCalibState();
+    showToast('Added new question split cut.', 'info');
+}
+
+function resetCalibToAutoDetected() {
+    const page = calibPagesData[currentCalibPageIndex];
+    if (page && page.original_slices) {
+        page.slices = JSON.parse(JSON.stringify(page.original_slices));
+        renderCalibState();
+        showToast('Reset to original auto-detected layout.', 'info');
+    }
+}
+
+async function submitCalibratedTest() {
+    if (!calibPagesData || calibPagesData.length === 0) {
+        showToast('No calibrated pages available.', 'error');
+        return;
+    }
+
+    const title = document.getElementById('calibTitleInput')?.value.trim() || 'Disha Academy Paper Assessment';
+    const duration = parseInt(document.getElementById('calibDurationInput')?.value, 10) || 30;
+    const btn = document.getElementById('confirmCalibTestBtn');
+    const btnText = document.getElementById('confirmCalibTestBtnText');
+    const origText = btnText ? btnText.innerHTML : 'Confirm & Create Test';
+
+    btn.disabled = true;
+    if (btnText) btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing & Finalizing Test...`;
+
+    const payload = {
+        pages: calibPagesData.map(p => ({
+            preview_id: p.preview_id,
+            slices: p.slices
+        })),
+        duration: duration,
+        title: title,
+        subject: calibPagesData[0]?.detected_subject || 'General'
+    };
+
+    try {
+        const res = await fetch('/api/admin/create-calibrated-photo-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.status === 401) {
+            showToast('Session expired. Redirecting to admin login...', 'error');
+            setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
+            return;
+        }
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            closePhotoCalibrateModal();
+            showToast(data.message || 'Test successfully calibrated and created!', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
+        } else {
+            showToast(data.detail || 'Failed to create test.', 'error');
+            btn.disabled = false;
+            if (btnText) btnText.innerHTML = origText;
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Network error while creating calibrated test.', 'error');
+        btn.disabled = false;
+        if (btnText) btnText.innerHTML = origText;
     }
 }
 

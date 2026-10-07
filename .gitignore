@@ -26,6 +26,8 @@ wheels/
 # Temporary Uploads
 data/uploads/*
 !data/uploads/.gitkeep
+static/uploads/paper_previews/*
+!static/uploads/paper_previews/.gitkeep
 
 # OS & Editor
 .DS_Store
