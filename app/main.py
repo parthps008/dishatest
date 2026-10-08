@@ -332,11 +332,12 @@ async def create_image_test_api(
     duration: int = Form(30),
     title: Optional[str] = Form(None),
     subject: Optional[str] = Form(None),
-    answers_json: Optional[str] = Form(None)
+    answers_json: Optional[str] = Form(None),
+    test_type: Optional[str] = Form("image")
 ):
     """
     Creates an image-based MCQ test where each uploaded screenshot corresponds to one question (1st image = Q1, 2nd = Q2, etc.).
-    Supports up to 50 images with multi-image upload and compression.
+    Supports up to 100 images with multi-image upload and compression, and MultipleCuts visual paper slicer.
     Options are fixed A, B, C, D. Answers are configured and editable by the admin.
     """
     require_admin_auth(request)
@@ -350,8 +351,9 @@ async def create_image_test_api(
     if not files or len(files) == 0:
         raise HTTPException(status_code=400, detail="Please upload at least 1 image to create a test.")
 
-    if len(files) > 50:
-        raise HTTPException(status_code=400, detail=f"Maximum 50 images allowed per test. You uploaded {len(files)} images.")
+    max_allowed = 100 if (test_type and test_type.strip() == "multiple_cuts") else 50
+    if len(files) > max_allowed:
+        raise HTTPException(status_code=400, detail=f"Maximum {max_allowed} images allowed per test. You uploaded {len(files)} images.")
 
     # Parse admin-specified answers if provided
     answers_map: Dict[str, str] = {}
@@ -444,7 +446,7 @@ async def create_image_test_api(
             "questions": questions,
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "pdf_filename": None,
-            "test_type": "image"
+            "test_type": (test_type or "image").strip()
         }
 
         active_test = TestManager.set_active_test(test_data)

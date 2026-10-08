@@ -92,8 +92,10 @@
                 <div class="test-info-block">
                     <h4>{{ active_test.title }}</h4>
                     <div class="test-meta-tags">
-                        {% if active_test.test_type == 'photo_paper' %}
-                        <span><i class="fa-solid fa-camera text-maroon"></i> <strong>Mode:</strong> Paper Photo Auto-Crop ({{ active_test.total_questions }} Qs)</span>
+                        {% if active_test.test_type == 'multiple_cuts' %}
+                        <span><i class="fa-solid fa-crop-simple" style="color: #8b5cf6;"></i> <strong>Mode:</strong> MultipleCuts Paper Slicer ({{ active_test.total_questions }} Qs)</span>
+                        {% elif active_test.test_type == 'photo_paper' %}
+                        <span><i class="fa-solid fa-camera text-maroon"></i> <strong>Mode:</strong> Paper Photo Slicer ({{ active_test.total_questions }} Qs)</span>
                         {% elif active_test.test_type == 'pdf_slice' %}
                         <span><i class="fa-solid fa-wand-magic-sparkles text-maroon"></i> <strong>Mode:</strong> PDF Auto-Sliced ({{ active_test.total_questions }} Qs from {{ active_test.pdf_filename }})</span>
                         {% elif active_test.pdf_filename %}
@@ -160,9 +162,9 @@
                 <button type="button" class="creation-menu-btn" id="menuBtnPdfSlice" onclick="switchCreationMenu('pdf_slice')">
                     <i class="fa-solid fa-wand-magic-sparkles text-maroon"></i> Option 3: PDF to Images Generate
                 </button>
-                <button type="button" class="creation-menu-btn" id="menuBtnPhotoPaper" onclick="switchCreationMenu('photo_paper')">
-                    <i class="fa-solid fa-camera text-gold"></i> Option 4: Image to Test (Auto-Crop)
-                    <span class="badge badge-gold" style="font-size: 0.68rem; padding: 2px 6px; margin-left: 4px;">AI VISION</span>
+                <button type="button" class="creation-menu-btn" id="menuBtnMultipleCuts" onclick="switchCreationMenu('multiple_cuts')">
+                    <i class="fa-solid fa-crop-simple" style="color: #8b5cf6;"></i> Option 4: MultipleCuts (Paper Slicer)
+                    <span class="badge" style="font-size: 0.68rem; padding: 2px 6px; margin-left: 4px; background: #ede9fe; color: #6d28d9; font-weight: 700;">MULTI-CUT</span>
                 </button>
             </div>
         </div>
@@ -417,48 +419,35 @@
                 </form>
             </div>
 
-            <!-- OPTION 4: Image to Test (Paper Scan / Photo Auto-Crop) Form -->
-            <div id="photoPaperUploadPane" style="display: none; {% if active_test %}opacity: 0.55; pointer-events: none;{% endif %}">
-                <div style="margin-bottom: 1.15rem; color: var(--text-secondary); font-size: 0.88rem; background: #f0fdf4; border-left: 3.5px solid #16a34a; padding: 0.85rem 1.1rem; border-radius: var(--radius-sm);">
-                    <i class="fa-solid fa-camera" style="color: #16a34a;"></i> <strong>Image to Test Mode (Paper Scan / Photo Auto-Crop):</strong>
-                    Upload smartphone camera photos or CamScanner scans of printed test papers.
-                    Our AI Vision engine automatically scans each page, detects questions (Q1, Q2...), diagrams, and formulas, crops individual question screenshots, and maps them sequentially with fixed ABCD options.
-                    If you upload multiple photos (e.g. Page 1 has 25 questions, Page 2 has 25 questions), all 50 questions are stitched together in order!
+            <!-- OPTION 4: MultipleCuts (Visual Multi-Crop Paper Slicer) Form -->
+            <div id="multipleCutsUploadPane" style="display: none; {% if active_test %}opacity: 0.55; pointer-events: none;{% endif %}">
+                <div style="margin-bottom: 1.15rem; color: var(--text-secondary); font-size: 0.88rem; background: #f5f3ff; border-left: 3.5px solid #8b5cf6; padding: 0.85rem 1.1rem; border-radius: var(--radius-sm);">
+                    <i class="fa-solid fa-crop-simple" style="color: #8b5cf6;"></i> <strong>MultipleCuts Studio:</strong>
+                    Upload a question paper scan or camera photo. It instantly expands into the full-screen MultipleCuts Studio where you can smoothly draw crops (Crop 1, Crop 2...), zoom in/out with touch or mouse, assign answers (A, B, C, D), and send all questions directly to the test!
                 </div>
 
-                <form id="uploadPhotoPaperForm" onsubmit="handlePhotoPaperUpload(event)">
-                    <!-- Multi-image dropzone for Paper Photos -->
-                    <div class="dropzone" id="photoPaperDropzone" onclick="document.getElementById('photoPaperFileInput').click()">
-                        <i class="fa-solid fa-camera dropzone-icon" style="color: #16a34a;"></i>
-                        <h4>Click or drag & drop Paper Photos / Scans here (Multiple Photos Supported)</h4>
-                        <p>Upload photos taken via phone or scanner (.png, .jpg, .jpeg, .webp). AI automatically slices each question.</p>
-                        <input type="file" id="photoPaperFileInput" name="paper_photos" accept=".png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="handlePhotoPaperFileSelect(this)">
-                        <div id="photoPaperSelectionBadge" style="display: none;" class="selected-file-info">
-                            <i class="fa-solid fa-camera text-green"></i>
-                            <span id="selectedPhotoPaperCount">0 Photos Selected</span>
-                            <span id="selectedPhotoPaperSize" style="color: var(--text-muted); font-size: 0.78rem;"></span>
+                <form id="uploadMultipleCutsForm" onsubmit="handleMultipleCutsFormSubmit(event)">
+                    <!-- Dropzone for MultipleCuts -->
+                    <div class="dropzone" id="mcDropzone" onclick="document.getElementById('mcFileInput').click()">
+                        <i class="fa-solid fa-crop-simple dropzone-icon" style="color: #8b5cf6;"></i>
+                        <h4>Click or drag & drop Question Paper Photo / Scan here</h4>
+                        <p>Select a question paper image (.png, .jpg, .jpeg, .webp). Expands automatically into the full-screen Multi-Cut Studio.</p>
+                        <input type="file" id="mcFileInput" name="paper_photo" accept=".png, .jpg, .jpeg, .webp" style="display: none;" onchange="handleMultipleCutsFileSelect(this)">
+                        <div id="mcSelectionBadge" style="display: none;" class="selected-file-info">
+                            <i class="fa-solid fa-file-image" style="color: #8b5cf6;"></i>
+                            <span id="mcSelectedFileName">paper.jpg</span>
+                            <span id="mcSelectedFileSize" style="color: var(--text-muted); font-size: 0.78rem;"></span>
                         </div>
                     </div>
 
-                    <!-- Selected Photos List / Preview Bar -->
-                    <div id="photoPaperListWrap" style="display: none; margin-top: 1rem; padding: 0.75rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <span style="font-size: 0.82rem; font-weight: 700; color: #334155;">Selected Paper Photos in Processing Order:</span>
-                            <button type="button" class="btn btn-outline" style="padding: 1px 7px; font-size: 0.75rem; color: var(--accent-maroon);" onclick="clearPhotoPaperFiles()">
-                                <i class="fa-solid fa-trash-can"></i> Clear All
-                            </button>
-                        </div>
-                        <div id="photoPaperFileList" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
-                    </div>
-
-                    <!-- Duration, Title & Subject Controls for Photo Paper Test -->
+                    <!-- Duration, Title & Subject Controls for MultipleCuts -->
                     <div class="upload-controls-grid">
                         <div class="input-group">
-                            <label for="photoPaperDurationSelect">
+                            <label for="mcDurationSelect">
                                 <i class="fa-regular fa-clock"></i> Test Duration (Dynamic Minutes) <span class="required">*</span>
                             </label>
                             <div class="duration-selector-group">
-                                <select id="photoPaperDurationSelect" class="form-control" onchange="toggleCustomPhotoPaperDuration(this.value)">
+                                <select id="mcDurationSelect" class="form-control" onchange="toggleCustomMcDuration(this.value)">
                                     <option value="15">15 Minutes</option>
                                     <option value="30" selected>30 Minutes (Recommended)</option>
                                     <option value="45">45 Minutes</option>
@@ -468,40 +457,35 @@
                                     <option value="180">180 Minutes (3 Hours)</option>
                                     <option value="custom">Custom Minutes...</option>
                                 </select>
-                                <input type="number" id="customPhotoPaperDurationInput" class="form-control custom-duration-input" 
+                                <input type="number" id="customMcDurationInput" class="form-control custom-duration-input" 
                                        min="1" max="600" placeholder="Mins" style="display: none;" value="30">
                             </div>
                         </div>
 
                         <div class="input-group">
-                            <label for="photoPaperTitleInput">
-                                <i class="fa-solid fa-heading"></i> Test Title (Optional Override)
+                            <label for="mcTitleInput">
+                                <i class="fa-solid fa-heading"></i> Test Title <span class="required">*</span>
                             </label>
-                            <input type="text" id="photoPaperTitleInput" class="form-control" 
-                                   placeholder="Leave empty to auto-extract from Paper Header" value="">
+                            <input type="text" id="mcTitleInput" class="form-control" 
+                                   placeholder="e.g. Disha Academy Paper Assessment" value="Disha Academy Paper Assessment">
                         </div>
                     </div>
 
                     <div class="upload-controls-grid" style="margin-top: 1rem;">
                         <div class="input-group">
-                            <label for="photoPaperSubjectInput">
-                                <i class="fa-solid fa-book-bookmark"></i> Subject / Category (Optional Override)
+                            <label for="mcSubjectInput">
+                                <i class="fa-solid fa-book-bookmark"></i> Subject / Category
                             </label>
-                            <input type="text" id="photoPaperSubjectInput" class="form-control" 
-                                   placeholder="e.g. Mathematics / Physics / General" value="">
+                            <input type="text" id="mcSubjectInput" class="form-control" 
+                                   placeholder="e.g. Physics / Chemistry / Mathematics / General" value="General">
                         </div>
                         <div class="input-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
                             <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-                                <i class="fa-solid fa-microscope text-green"></i> AI Question Boundary & Diagram Detection enabled
+                                <i class="fa-solid fa-hand-pointer" style="color: #8b5cf6;"></i> Touch & Mouse Free-Form Crop Enabled
                             </div>
-                            <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
-                                <button type="submit" id="generatePhotoPaperBtn" class="btn btn-primary btn-lg" style="flex: 1; min-width: 200px;">
-                                    <i class="fa-solid fa-bolt"></i> <span id="generatePhotoPaperBtnText">Instant Auto-Generate</span>
-                                </button>
-                                <button type="button" id="calibratePhotoPaperBtn" class="btn btn-outline btn-lg" style="border: 2px solid var(--accent-gold); color: var(--primary-navy); font-weight: 700; background: #fffdf5; display: inline-flex; align-items: center; gap: 6px;" onclick="startInteractiveLayoutReview()">
-                                    <i class="fa-solid fa-crop-simple text-gold"></i> <span>Review & Calibrate (/train_image)</span>
-                                </button>
-                            </div>
+                            <button type="button" id="openMcStudioBtn" class="btn btn-primary btn-lg" style="width: 100%; background: #7c3aed; border-color: #7c3aed;" onclick="openMultipleCutsStudioWithSelectedFile()">
+                                <i class="fa-solid fa-up-right-and-down-left-from-center"></i> <span>Open MultipleCuts Studio</span>
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -774,87 +758,100 @@
     </div>
 </div>
 
-<!-- Modal: Interactive Paper Layout Review & Calibration (/train_image) -->
-<div id="photoCalibrateModal" class="modal-overlay" style="display: none; z-index: 1060; backdrop-filter: blur(8px); background: rgba(13, 34, 64, 0.85);">
-    <div class="modal-content" style="max-width: 1100px; width: 95%; max-height: 92vh; display: flex; flex-direction: column; padding: 1.5rem; border-radius: var(--radius-lg); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
-        <!-- Modal Header -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 0.75rem; border-bottom: 1.5px solid #e2e8f0;">
-            <div>
-                <h3 style="margin: 0; font-size: 1.25rem; color: var(--primary-navy); display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-crop-simple text-gold"></i>
-                    <span>Layout Calibration & Cut Inspector</span>
-                    <span style="font-size: 0.75rem; font-weight: 700; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 9999px;">/train_image</span>
-                </h3>
-                <p style="margin: 3px 0 0; font-size: 0.82rem; color: var(--text-muted);">
-                    Inspect detected question cut boxes directly on your paper scan. Every question is mapped with its 4 options. Nudge dividers or adjust answers if needed before publishing.
-                </p>
+<!-- Full-Screen Studio Modal: MultipleCuts Visual Multi-Crop Slicer -->
+<div id="multipleCutsStudioModal" class="mc-studio-overlay" style="display: none;">
+    <!-- Studio Header -->
+    <header class="mc-studio-header">
+        <div style="display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+            <div class="mc-brand">
+                <div class="mc-brand-icon">
+                    <i class="fa-solid fa-crop-simple"></i>
+                </div>
+                <span>MultipleCuts</span>
             </div>
-            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.9rem;" onclick="closePhotoCalibrateModal()">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-
-        <!-- Modal Body: Split view (Left: Paper Viewer with Green Cut Overlays; Right: Question Cards & Controls) -->
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.25rem; margin-top: 1rem; overflow: hidden; flex: 1;">
-            <!-- Left: Paper Image with Overlay Boxes -->
-            <div style="display: flex; flex-direction: column; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                    <span style="font-weight: 700; font-size: 0.82rem; color: var(--text-secondary);">
-                        <i class="fa-solid fa-eye text-navy"></i> Visual Cut Boxes Overlay
-                    </span>
-                    <span id="calibPageIndicator" style="font-size: 0.78rem; font-weight: 700; color: var(--accent-maroon);">
-                        Page 1 of 1
-                    </span>
-                </div>
-                <div id="calibPaperContainer" style="position: relative; overflow-y: auto; max-height: 58vh; border: 2px solid #cbd5e1; border-radius: var(--radius-sm); background: #1e293b; text-align: center;">
-                    <img id="calibPaperImage" src="" alt="Paper Scan Preview" style="width: 100%; display: block; user-select: none;" />
-                    <div id="calibOverlayBoxes" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
-                </div>
-            </div>
-
-            <!-- Right: Questions Slices List & Controls -->
-            <div style="display: flex; flex-direction: column; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                    <span id="calibQuestionCountBadge" class="badge badge-green" style="font-size: 0.82rem; font-weight: 700;">
-                        0 Questions Detected
-                    </span>
-                    <div style="display: flex; gap: 0.35rem;">
-                        <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 3px 8px;" onclick="addCalibQuestionDivider()">
-                            <i class="fa-solid fa-plus text-green"></i> Add Split
-                        </button>
-                        <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 3px 8px;" onclick="resetCalibToAutoDetected()">
-                            <i class="fa-solid fa-rotate-left"></i> Reset
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Questions List Container -->
-                <div id="calibQuestionsList" style="overflow-y: auto; max-height: 58vh; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 4px;">
-                    <!-- Dynamically populated via JS -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal Footer: Meta & Action Button -->
-        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin: 0;">Duration:</label>
-                    <input type="number" id="calibDurationInput" class="form-control" style="width: 75px; padding: 4px 8px; font-size: 0.85rem;" min="1" max="600" value="30">
-                    <span style="font-size: 0.78rem; color: var(--text-muted);">mins</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin: 0;">Title:</label>
-                    <input type="text" id="calibTitleInput" class="form-control" style="width: 220px; padding: 4px 8px; font-size: 0.85rem;" placeholder="Test Title">
-                </div>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button type="button" class="btn btn-outline" onclick="closePhotoCalibrateModal()">Cancel</button>
-                <button type="button" id="confirmCalibTestBtn" class="btn btn-primary" style="background: #16a34a; border-color: #16a34a; font-weight: 700;" onclick="submitCalibratedTest()">
-                    <i class="fa-solid fa-circle-check"></i> <span id="confirmCalibTestBtnText">Confirm & Create Test</span>
+            <div class="mc-history-group">
+                <button type="button" class="mc-btn-tool" id="mcUndoBtn" onclick="mcUndo()" title="Undo (Ctrl+Z)" disabled>
+                    <i class="fa-solid fa-rotate-left"></i> Undo
+                </button>
+                <button type="button" class="mc-btn-tool" id="mcRedoBtn" onclick="mcRedo()" title="Redo (Ctrl+Y)" disabled>
+                    <i class="fa-solid fa-rotate-right"></i> Redo
+                </button>
+                <button type="button" class="mc-btn-tool" onclick="mcClearAllCrops()" title="Clear All Crops" style="color: #f87171;">
+                    <i class="fa-solid fa-trash-can"></i> Clear
                 </button>
             </div>
         </div>
+
+        <!-- Meta configuration inputs in header -->
+        <div class="mc-meta-bar">
+            <div class="mc-meta-item">
+                <label><i class="fa-solid fa-heading"></i> Title:</label>
+                <input type="text" id="mcStudioTitleInput" class="mc-meta-input" style="width: 220px;" value="Disha Academy Paper Assessment">
+            </div>
+            <div class="mc-meta-item">
+                <label><i class="fa-regular fa-clock"></i> Duration:</label>
+                <input type="number" id="mcStudioDurationInput" class="mc-meta-input" style="width: 65px;" min="1" max="600" value="30">
+                <span>mins</span>
+            </div>
+            <div class="mc-meta-item">
+                <label><i class="fa-solid fa-book-bookmark"></i> Subject:</label>
+                <input type="text" id="mcStudioSubjectInput" class="mc-meta-input" style="width: 110px;" value="General">
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mc-header-actions">
+            <button type="button" id="mcSendToTestBtn" class="mc-send-btn" onclick="mcSubmitCropsToTest()">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span id="mcSendBtnText">Send to Test (<strong id="mcTotalCropsBadge">0</strong> Qs)</span>
+            </button>
+            <button type="button" class="mc-close-btn" onclick="closeMultipleCutsStudio()" title="Close Studio">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Studio Main Content -->
+    <div class="mc-studio-content">
+        <!-- Center Stage: Canvas & Overlays -->
+        <div class="mc-stage-wrap" id="mcStageWrap">
+            <div class="mc-image-canvas-box" id="mcImageBox">
+                <img id="mcDisplayImage" class="mc-paper-image" alt="Question Paper" />
+                <div id="mcCropOverlay" class="mc-crop-overlay"></div>
+            </div>
+
+            <!-- Floating Zoom Bar -->
+            <div class="mc-zoom-bar">
+                <button type="button" class="mc-zoom-btn" onclick="mcZoomStep(-0.15)" title="Zoom Out (-)">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <span class="mc-zoom-val" id="mcZoomValueText">100%</span>
+                <button type="button" class="mc-zoom-btn" onclick="mcZoomStep(0.15)" title="Zoom In (+)">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button type="button" class="mc-zoom-btn" onclick="mcFitToScreen()" title="Fit to Screen" style="border-left: 1px solid rgba(255,255,255,0.2); border-radius: 4px; margin-left: 4px; padding-left: 6px;">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Crop Previews & Answer Keys -->
+        <aside class="mc-sidebar">
+            <div class="mc-sidebar-header">
+                <h4>
+                    <i class="fa-solid fa-scissors" style="color: #8b5cf6;"></i>
+                    <span>Crop Previews</span>
+                    <span class="badge" id="mcSidebarCountBadge" style="background: rgba(139, 92, 246, 0.25); color: #c4b5fd; font-size: 0.75rem;">0</span>
+                </h4>
+            </div>
+            <div class="mc-sidebar-list" id="mcPreviewsList">
+                <div class="mc-empty-tip" id="mcEmptyTip">
+                    <i class="fa-solid fa-arrow-pointer"></i>
+                    <strong>No crops yet</strong><br>
+                    Click and drag (or touch and drag on mobile) on the question paper to create <strong>Crop 1</strong>, <strong>Crop 2</strong>, etc.
+                </div>
+            </div>
+        </aside>
     </div>
 </div>
 {% endblock %}

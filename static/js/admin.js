@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDropzone();
     initImagesDropzone();
     initPdfSliceDropzone();
-    initPhotoPaperDropzone();
+    initMultipleCutsDropzone();
 });
 
 // Dropzone Initialization
@@ -143,17 +143,17 @@ function switchCreationMenu(mode) {
     const btnPdf = document.getElementById('menuBtnPdf');
     const btnImages = document.getElementById('menuBtnImages');
     const btnPdfSlice = document.getElementById('menuBtnPdfSlice');
-    const btnPhotoPaper = document.getElementById('menuBtnPhotoPaper');
+    const btnMultipleCuts = document.getElementById('menuBtnMultipleCuts');
     const panePdf = document.getElementById('pdfUploadPane');
     const paneImages = document.getElementById('imageUploadPane');
     const panePdfSlice = document.getElementById('pdfSliceUploadPane');
-    const panePhotoPaper = document.getElementById('photoPaperUploadPane');
+    const paneMultipleCuts = document.getElementById('multipleCutsUploadPane');
 
     if (!btnPdf || !btnImages || !panePdf || !paneImages) return;
 
     // Clear active classes and hide all panes
-    [btnPdf, btnImages, btnPdfSlice, btnPhotoPaper].forEach(b => b && b.classList.remove('active'));
-    [panePdf, paneImages, panePdfSlice, panePhotoPaper].forEach(p => p && (p.style.display = 'none'));
+    [btnPdf, btnImages, btnPdfSlice, btnMultipleCuts].forEach(b => b && b.classList.remove('active'));
+    [panePdf, paneImages, panePdfSlice, paneMultipleCuts].forEach(p => p && (p.style.display = 'none'));
 
     if (mode === 'images') {
         if (btnImages) btnImages.classList.add('active');
@@ -161,9 +161,9 @@ function switchCreationMenu(mode) {
     } else if (mode === 'pdf_slice') {
         if (btnPdfSlice) btnPdfSlice.classList.add('active');
         if (panePdfSlice) panePdfSlice.style.display = 'block';
-    } else if (mode === 'photo_paper') {
-        if (btnPhotoPaper) btnPhotoPaper.classList.add('active');
-        if (panePhotoPaper) panePhotoPaper.style.display = 'block';
+    } else if (mode === 'multiple_cuts') {
+        if (btnMultipleCuts) btnMultipleCuts.classList.add('active');
+        if (paneMultipleCuts) paneMultipleCuts.style.display = 'block';
     } else {
         if (btnPdf) btnPdf.classList.add('active');
         if (panePdf) panePdf.style.display = 'block';
@@ -787,12 +787,33 @@ async function handlePdfSliceUpload(e) {
 }
 
 // ===================================================
-// Option 4: Image to Test (Paper Scan / Photo Auto-Crop) Logic
+// Option 4: MultipleCuts (Visual Multi-Crop Paper Slicer)
 // ===================================================
-let selectedPhotoPaperFilesArray = [];
+let mcCurrentFile = null;
+let mcImageElement = null;
+let mcNaturalWidth = 0;
+let mcNaturalHeight = 0;
+let mcCrops = [];
+let mcActiveCropId = null;
+let mcZoom = 1.0;
+let mcHistory = [];
+let mcHistoryIndex = -1;
 
-function initPhotoPaperDropzone() {
-    const dropzone = document.getElementById('photoPaperDropzone');
+const MC_COLORS = [
+    '#8b5cf6', // Violet
+    '#0284c7', // Sky blue
+    '#10b981', // Emerald
+    '#f59e0b', // Amber
+    '#ef4444', // Red
+    '#ec4899', // Pink
+    '#06b6d4', // Cyan
+    '#84cc16', // Lime
+    '#d946ef', // Fuchsia
+    '#f97316'  // Orange
+];
+
+function initMultipleCutsDropzone() {
+    const dropzone = document.getElementById('mcDropzone');
     if (!dropzone) return;
 
     ['dragenter', 'dragover'].forEach(eventName => {
@@ -818,92 +839,51 @@ function initPhotoPaperDropzone() {
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files && files.length > 0) {
-            processIncomingPhotoPaperFiles(Array.from(files));
+            handleMultipleCutsIncomingFile(files[0]);
         }
     });
 }
 
-function handlePhotoPaperFileSelect(input) {
+function handleMultipleCutsFileSelect(input) {
     if (!input.files || input.files.length === 0) return;
-    processIncomingPhotoPaperFiles(Array.from(input.files));
+    handleMultipleCutsIncomingFile(input.files[0]);
     input.value = '';
 }
 
-function processIncomingPhotoPaperFiles(fileList) {
+function handleMultipleCutsIncomingFile(file) {
     const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    const validFiles = fileList.filter(f => {
-        const ext = '.' + f.name.split('.').pop().toLowerCase();
-        return allowed.includes(f.type) || ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
-    });
-
-    if (validFiles.length === 0) {
-        showToast('Please select valid paper photo images (.png, .jpg, .jpeg, .webp).', 'error');
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowed.includes(file.type) && !['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
+        showToast('Please select a valid image (.png, .jpg, .jpeg, .webp).', 'error');
         return;
     }
 
-    validFiles.forEach(file => {
-        selectedPhotoPaperFilesArray.push(file);
-    });
+    mcCurrentFile = file;
 
-    updatePhotoPaperFileListDisplay();
-}
-
-function updatePhotoPaperFileListDisplay() {
-    const badge = document.getElementById('photoPaperSelectionBadge');
-    const countEl = document.getElementById('selectedPhotoPaperCount');
-    const sizeEl = document.getElementById('selectedPhotoPaperSize');
-    const wrap = document.getElementById('photoPaperListWrap');
-    const listEl = document.getElementById('photoPaperFileList');
-
-    if (!badge || !countEl || !wrap || !listEl) return;
-
-    if (selectedPhotoPaperFilesArray.length === 0) {
-        badge.style.display = 'none';
-        wrap.style.display = 'none';
-        listEl.innerHTML = '';
-        return;
+    const badge = document.getElementById('mcSelectionBadge');
+    const nameEl = document.getElementById('mcSelectedFileName');
+    const sizeEl = document.getElementById('mcSelectedFileSize');
+    if (badge && nameEl && sizeEl) {
+        nameEl.textContent = file.name;
+        sizeEl.textContent = `(${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        badge.style.display = 'inline-flex';
     }
 
-    const count = selectedPhotoPaperFilesArray.length;
-    let totalBytes = 0;
-    selectedPhotoPaperFilesArray.forEach(f => { totalBytes += f.size; });
-    const sizeMb = (totalBytes / (1024 * 1024)).toFixed(2);
-
-    countEl.textContent = `${count} Paper Photo${count > 1 ? 's' : ''} Selected`;
-    if (sizeEl) sizeEl.textContent = `(${sizeMb} MB total)`;
-    badge.style.display = 'inline-flex';
-    wrap.style.display = 'block';
-
-    listEl.innerHTML = '';
-    selectedPhotoPaperFilesArray.forEach((file, idx) => {
-        const chip = document.createElement('div');
-        chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.78rem; color: #1e293b;';
-        chip.innerHTML = `
-            <i class="fa-solid fa-file-image" style="color: #16a34a;"></i>
-            <span style="font-weight: 700;">Page ${idx + 1}:</span>
-            <span style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${file.name}">${file.name}</span>
-            <button type="button" style="border: none; background: transparent; cursor: pointer; color: #ef4444; font-size: 0.82rem; padding: 0 2px;" onclick="removePhotoPaperFile(${idx})">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        `;
-        listEl.appendChild(chip);
-    });
+    // Immediately open full-screen MultipleCuts Studio
+    openMultipleCutsStudio(file);
 }
 
-function removePhotoPaperFile(index) {
-    if (index >= 0 && index < selectedPhotoPaperFilesArray.length) {
-        selectedPhotoPaperFilesArray.splice(index, 1);
-        updatePhotoPaperFileListDisplay();
+function openMultipleCutsStudioWithSelectedFile() {
+    if (mcCurrentFile) {
+        openMultipleCutsStudio(mcCurrentFile);
+    } else {
+        const fileInput = document.getElementById('mcFileInput');
+        if (fileInput) fileInput.click();
     }
 }
 
-function clearPhotoPaperFiles() {
-    selectedPhotoPaperFilesArray = [];
-    updatePhotoPaperFileListDisplay();
-}
-
-function toggleCustomPhotoPaperDuration(val) {
-    const customInput = document.getElementById('customPhotoPaperDurationInput');
+function toggleCustomMcDuration(val) {
+    const customInput = document.getElementById('customMcDurationInput');
     if (!customInput) return;
     if (val === 'custom') {
         customInput.style.display = 'inline-block';
@@ -913,516 +893,656 @@ function toggleCustomPhotoPaperDuration(val) {
     }
 }
 
-function getSelectedPhotoPaperDuration() {
-    const select = document.getElementById('photoPaperDurationSelect');
+function getSelectedMcDuration() {
+    const select = document.getElementById('mcDurationSelect');
     if (!select) return 30;
     if (select.value === 'custom') {
-        const customVal = parseInt(document.getElementById('customPhotoPaperDurationInput').value, 10);
+        const customVal = parseInt(document.getElementById('customMcDurationInput').value, 10);
         return isNaN(customVal) || customVal <= 0 ? 30 : customVal;
     }
     return parseInt(select.value, 10) || 30;
 }
 
-async function handlePhotoPaperUpload(e) {
-    if (e && e.preventDefault) e.preventDefault();
+function openMultipleCutsStudio(file) {
+    const modal = document.getElementById('multipleCutsStudioModal');
+    if (!modal) return;
 
-    if (selectedPhotoPaperFilesArray.length === 0) {
-        showToast('Please select at least 1 test paper photo to scan.', 'error');
+    modal.style.display = 'flex';
+
+    // Sync title, duration, subject
+    const titleVal = document.getElementById('mcTitleInput')?.value.trim() || 'Disha Academy Paper Assessment';
+    const durVal = getSelectedMcDuration();
+    const subjVal = document.getElementById('mcSubjectInput')?.value.trim() || 'General';
+
+    const sTitle = document.getElementById('mcStudioTitleInput');
+    const sDur = document.getElementById('mcStudioDurationInput');
+    const sSubj = document.getElementById('mcStudioSubjectInput');
+    if (sTitle) sTitle.value = titleVal;
+    if (sDur) sDur.value = durVal;
+    if (sSubj) sSubj.value = subjVal;
+
+    // Reset crop state
+    mcCrops = [];
+    mcActiveCropId = null;
+    mcHistory = [];
+    mcHistoryIndex = -1;
+    mcSaveHistory();
+
+    const imgEl = document.getElementById('mcDisplayImage');
+    const objectUrl = URL.createObjectURL(file);
+
+    mcImageElement = new Image();
+    mcImageElement.onload = () => {
+        mcNaturalWidth = mcImageElement.naturalWidth;
+        mcNaturalHeight = mcImageElement.naturalHeight;
+
+        imgEl.src = objectUrl;
+        imgEl.onload = () => {
+            mcFitToScreen();
+            initMcOverlayEvents();
+            mcRenderAll();
+        };
+    };
+    mcImageElement.src = objectUrl;
+}
+
+function closeMultipleCutsStudio() {
+    const modal = document.getElementById('multipleCutsStudioModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function mcZoomStep(delta) {
+    mcZoom = Math.min(3.5, Math.max(0.3, mcZoom + delta));
+    applyMcZoom();
+}
+
+function mcFitToScreen() {
+    const stage = document.getElementById('mcStageWrap');
+    if (!stage || !mcNaturalWidth || !mcNaturalHeight) {
+        mcZoom = 1.0;
+        applyMcZoom();
         return;
     }
 
-    const duration = getSelectedPhotoPaperDuration();
-    const title = document.getElementById('photoPaperTitleInput') ? document.getElementById('photoPaperTitleInput').value.trim() : '';
-    const subject = document.getElementById('photoPaperSubjectInput') ? document.getElementById('photoPaperSubjectInput').value.trim() : '';
+    const stageWidth = stage.clientWidth - 80;
+    const stageHeight = stage.clientHeight - 80;
 
-    const submitBtn = document.getElementById('generatePhotoPaperBtn');
-    const submitBtnText = document.getElementById('generatePhotoPaperBtnText');
-    const originalText = submitBtnText ? submitBtnText.innerHTML : 'Instant Auto-Generate';
-    const progressModal = document.getElementById('pdfSliceProgressModal');
+    const scaleX = stageWidth / mcNaturalWidth;
+    const scaleY = stageHeight / mcNaturalHeight;
+    mcZoom = Math.min(scaleX, scaleY, 1.0);
+    if (mcZoom < 0.25) mcZoom = 0.25;
 
-    submitBtn.disabled = true;
-    if (submitBtnText) {
-        submitBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Scanning Photos & Slicing Questions...`;
+    applyMcZoom();
+}
+
+function applyMcZoom() {
+    const imgBox = document.getElementById('mcImageBox');
+    const valText = document.getElementById('mcZoomValueText');
+    if (imgBox) {
+        imgBox.style.transform = `scale(${mcZoom})`;
     }
-
-    // Configure modal for Paper Photo AI Vision
-    const modalTitleEl = document.getElementById('progressModalTitle');
-    const modalSubEl = document.getElementById('progressModalSub');
-    if (modalTitleEl) modalTitleEl.textContent = 'Universal Paper Question Auto-Crop';
-    if (modalSubEl) modalSubEl.textContent = `Analyzing ${selectedPhotoPaperFilesArray.length} paper photo(s) & extracting question snapshots...`;
-
-    // Reset ring styles
-    const ring = document.getElementById('sliceProgressRing');
-    const subEl = document.getElementById('sliceProgressSub');
-    if (ring) ring.style.stroke = '#2563eb';
-    if (subEl) {
-        subEl.textContent = 'Processing';
-        subEl.style.color = 'var(--text-muted)';
+    if (valText) {
+        valText.textContent = `${Math.round(mcZoom * 100)}%`;
     }
+}
 
-    if (progressModal) {
-        progressModal.style.display = 'flex';
-    }
+// ---------------------------------------------------
+// Multi-Cut Interaction Engine (Pointer Events)
+// ---------------------------------------------------
+let mcOverlayInitialized = false;
+let mcInteraction = null;
 
-    setSliceProgress(10, '<i class="fa-solid fa-camera fa-spin text-navy"></i> Pre-compressing & Uploading Photos...', `Optimizing ${selectedPhotoPaperFilesArray.length} test paper scan(s)...`, 1);
+function initMcOverlayEvents() {
+    const overlay = document.getElementById('mcCropOverlay');
+    if (!overlay || mcOverlayInitialized) return;
+    mcOverlayInitialized = true;
 
-    let currentPct = 10;
-    const progressTimer = setInterval(() => {
-        if (currentPct < 30) {
-            currentPct += 5;
-            setSliceProgress(currentPct, '<i class="fa-solid fa-microscope fa-spin text-navy"></i> Running Layout & OCR Engine...', 'Detecting question markers and option clusters across pages...', 2);
-        } else if (currentPct < 60) {
-            currentPct += 5;
-            setSliceProgress(currentPct, '<i class="fa-solid fa-crop-simple fa-spin text-navy"></i> Detecting Question Boundaries...', 'Grouping options (A, B, C, D) and math formulas...', 3);
-        } else if (currentPct < 85) {
-            currentPct += 4;
-            setSliceProgress(currentPct, '<i class="fa-solid fa-scissors fa-spin text-navy"></i> Slicing & Optimizing Question Snapshots...', 'Trimming white borders and compressing images for mobile...', 3);
-        } else if (currentPct < 94) {
-            currentPct += 1;
-            setSliceProgress(currentPct, '<i class="fa-solid fa-map-location-dot fa-spin text-navy"></i> Mapping Questions & ABCD Options...', 'Sequentially chaining questions (Q1..Qn)...', 4);
+    overlay.addEventListener('pointerdown', handleMcPointerDown);
+    window.addEventListener('pointermove', handleMcPointerMove);
+    window.addEventListener('pointerup', handleMcPointerUp);
+    window.addEventListener('pointercancel', handleMcPointerUp);
+
+    // Keyboard shortcuts (Delete, Ctrl+Z, Ctrl+Y)
+    window.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('multipleCutsStudioModal');
+        if (!modal || modal.style.display !== 'flex') return;
+
+        if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (mcActiveCropId) {
+                mcDeleteCrop(mcActiveCropId);
+            }
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            mcUndo();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            mcRedo();
         }
-    }, 200);
+    });
+}
 
-    // Fast client pre-compression for paper photos
-    const filesToUpload = [];
-    for (let i = 0; i < selectedPhotoPaperFilesArray.length; i++) {
-        const comp = await fastCompressImage(selectedPhotoPaperFilesArray[i], 1600, 0.85);
-        filesToUpload.push(comp);
+function getPointerNaturalCoords(e) {
+    const overlay = document.getElementById('mcCropOverlay');
+    const rect = overlay.getBoundingClientRect();
+
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    const relX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const relY = Math.max(0, Math.min(rect.height, clientY - rect.top));
+
+    const scaleX = mcNaturalWidth / rect.width;
+    const scaleY = mcNaturalHeight / rect.height;
+
+    return {
+        x: Math.round(relX * scaleX),
+        y: Math.round(relY * scaleY)
+    };
+}
+
+function handleMcPointerDown(e) {
+    if (e.button !== 0 && e.pointerType === 'mouse') return; // only primary click
+
+    const target = e.target;
+    const coords = getPointerNaturalCoords(e);
+
+    // 1. Check if clicked on a resize handle
+    if (target.classList.contains('mc-handle')) {
+        e.stopPropagation();
+        const handleType = target.dataset.handle;
+        const cropId = target.dataset.cropId;
+        const crop = mcCrops.find(c => c.id === cropId);
+        if (!crop) return;
+
+        mcSelectCrop(cropId);
+        mcInteraction = {
+            mode: 'resize',
+            cropId: cropId,
+            handle: handleType,
+            startCoords: coords,
+            origBox: { ...crop }
+        };
+        return;
     }
 
-    const formData = new FormData();
-    filesToUpload.forEach(file => {
-        formData.append('files', file);
+    // 2. Check if clicked inside an existing crop box (to move)
+    const boxEl = target.closest('.mc-box');
+    if (boxEl && !target.classList.contains('mc-badge-del')) {
+        e.stopPropagation();
+        const cropId = boxEl.dataset.cropId;
+        const crop = mcCrops.find(c => c.id === cropId);
+        if (!crop) return;
+
+        mcSelectCrop(cropId);
+        mcInteraction = {
+            mode: 'move',
+            cropId: cropId,
+            startCoords: coords,
+            origBox: { ...crop }
+        };
+        return;
+    }
+
+    // 3. Clicked on empty overlay space -> Draw a new crop
+    const nextNum = mcCrops.length + 1;
+    const color = MC_COLORS[(nextNum - 1) % MC_COLORS.length];
+    const newId = 'crop_' + Date.now();
+
+    const draftCrop = {
+        id: newId,
+        num: nextNum,
+        x: coords.x,
+        y: coords.y,
+        w: 0,
+        h: 0,
+        color: color,
+        answer: 'A',
+        isDraft: true
+    };
+
+    mcCrops.push(draftCrop);
+    mcActiveCropId = newId;
+
+    mcInteraction = {
+        mode: 'draw',
+        cropId: newId,
+        startCoords: coords,
+        origBox: { ...draftCrop }
+    };
+
+    mcRenderAll();
+}
+
+function handleMcPointerMove(e) {
+    if (!mcInteraction) return;
+
+    const coords = getPointerNaturalCoords(e);
+    const { mode, cropId, startCoords, origBox, handle } = mcInteraction;
+    const crop = mcCrops.find(c => c.id === cropId);
+    if (!crop) return;
+
+    if (mode === 'draw') {
+        const x1 = Math.min(startCoords.x, coords.x);
+        const y1 = Math.min(startCoords.y, coords.y);
+        const x2 = Math.max(startCoords.x, coords.x);
+        const y2 = Math.max(startCoords.y, coords.y);
+
+        crop.x = Math.max(0, x1);
+        crop.y = Math.max(0, y1);
+        crop.w = Math.min(mcNaturalWidth - crop.x, x2 - x1);
+        crop.h = Math.min(mcNaturalHeight - crop.y, y2 - y1);
+
+        updateCropBoxDom(crop);
+    } else if (mode === 'move') {
+        const dx = coords.x - startCoords.x;
+        const dy = coords.y - startCoords.y;
+
+        let newX = origBox.x + dx;
+        let newY = origBox.y + dy;
+
+        newX = Math.max(0, Math.min(mcNaturalWidth - origBox.w, newX));
+        newY = Math.max(0, Math.min(mcNaturalHeight - origBox.h, newY));
+
+        crop.x = newX;
+        crop.y = newY;
+
+        updateCropBoxDom(crop);
+    } else if (mode === 'resize') {
+        const dx = coords.x - startCoords.x;
+        const dy = coords.y - startCoords.y;
+
+        let x1 = origBox.x;
+        let y1 = origBox.y;
+        let x2 = origBox.x + origBox.w;
+        let y2 = origBox.y + origBox.h;
+
+        if (handle.includes('w')) x1 = Math.min(x2 - 20, origBox.x + dx);
+        if (handle.includes('e')) x2 = Math.max(x1 + 20, origBox.x + origBox.w + dx);
+        if (handle.includes('n')) y1 = Math.min(y2 - 20, origBox.y + dy);
+        if (handle.includes('s')) y2 = Math.max(y1 + 20, origBox.y + origBox.h + dy);
+
+        x1 = Math.max(0, x1);
+        y1 = Math.max(0, y1);
+        x2 = Math.min(mcNaturalWidth, x2);
+        y2 = Math.min(mcNaturalHeight, y2);
+
+        crop.x = x1;
+        crop.y = y1;
+        crop.w = Math.max(20, x2 - x1);
+        crop.h = Math.max(20, y2 - y1);
+
+        updateCropBoxDom(crop);
+    }
+}
+
+function handleMcPointerUp(e) {
+    if (!mcInteraction) return;
+
+    const { mode, cropId } = mcInteraction;
+    mcInteraction = null;
+
+    const crop = mcCrops.find(c => c.id === cropId);
+    if (!crop) return;
+
+    if (mode === 'draw') {
+        crop.isDraft = false;
+        // If box too small (< 25px in any dimension), discard it as accidental click
+        if (crop.w < 25 || crop.h < 25) {
+            mcCrops = mcCrops.filter(c => c.id !== cropId);
+            mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+        } else {
+            mcReindexCrops();
+            mcSaveHistory();
+        }
+    } else if (mode === 'move' || mode === 'resize') {
+        mcSaveHistory();
+    }
+
+    mcRenderAll();
+}
+
+function updateCropBoxDom(crop) {
+    const boxEl = document.querySelector(`.mc-box[data-crop-id="${crop.id}"]`);
+    if (!boxEl || !mcNaturalWidth || !mcNaturalHeight) return;
+
+    const leftPct = (crop.x / mcNaturalWidth) * 100;
+    const topPct = (crop.y / mcNaturalHeight) * 100;
+    const widthPct = (crop.w / mcNaturalWidth) * 100;
+    const heightPct = (crop.h / mcNaturalHeight) * 100;
+
+    boxEl.style.left = `${leftPct}%`;
+    boxEl.style.top = `${topPct}%`;
+    boxEl.style.width = `${widthPct}%`;
+    boxEl.style.height = `${heightPct}%`;
+}
+
+function mcSelectCrop(cropId) {
+    mcActiveCropId = cropId;
+    mcRenderAll();
+
+    // Scroll preview card into view
+    const cardEl = document.querySelector(`.mc-preview-card[data-crop-id="${cropId}"]`);
+    if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function mcDeleteCrop(cropId, e) {
+    if (e) e.stopPropagation();
+    mcCrops = mcCrops.filter(c => c.id !== cropId);
+    if (mcActiveCropId === cropId) {
+        mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+    }
+    mcReindexCrops();
+    mcSaveHistory();
+    mcRenderAll();
+}
+
+function mcClearAllCrops() {
+    if (mcCrops.length === 0) return;
+    if (!confirm('Are you sure you want to clear all crop boxes?')) return;
+    mcCrops = [];
+    mcActiveCropId = null;
+    mcSaveHistory();
+    mcRenderAll();
+}
+
+function mcReindexCrops() {
+    mcCrops.forEach((c, idx) => {
+        c.num = idx + 1;
+        c.color = MC_COLORS[idx % MC_COLORS.length];
     });
-    formData.append('duration', duration);
-    if (title) formData.append('title', title);
-    if (subject) formData.append('subject', subject);
+}
+
+function mcSetCropAnswer(cropId, ans, e) {
+    if (e) e.stopPropagation();
+    const crop = mcCrops.find(c => c.id === cropId);
+    if (crop) {
+        crop.answer = ans;
+        mcSaveHistory();
+        renderMcPreviews();
+    }
+}
+
+// ---------------------------------------------------
+// History (Undo / Redo)
+// ---------------------------------------------------
+function mcSaveHistory() {
+    // If not at the end of history, truncate redo states
+    if (mcHistoryIndex < mcHistory.length - 1) {
+        mcHistory = mcHistory.slice(0, mcHistoryIndex + 1);
+    }
+
+    const snapshot = JSON.stringify(mcCrops);
+    mcHistory.push(snapshot);
+    if (mcHistory.length > 30) mcHistory.shift();
+    mcHistoryIndex = mcHistory.length - 1;
+
+    updateMcHistoryButtons();
+}
+
+function mcUndo() {
+    if (mcHistoryIndex > 0) {
+        mcHistoryIndex--;
+        mcCrops = JSON.parse(mcHistory[mcHistoryIndex]);
+        mcReindexCrops();
+        mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+        updateMcHistoryButtons();
+        mcRenderAll();
+    }
+}
+
+function mcRedo() {
+    if (mcHistoryIndex < mcHistory.length - 1) {
+        mcHistoryIndex++;
+        mcCrops = JSON.parse(mcHistory[mcHistoryIndex]);
+        mcReindexCrops();
+        mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+        updateMcHistoryButtons();
+        mcRenderAll();
+    }
+}
+
+function updateMcHistoryButtons() {
+    const undoBtn = document.getElementById('mcUndoBtn');
+    const redoBtn = document.getElementById('mcRedoBtn');
+    if (undoBtn) undoBtn.disabled = mcHistoryIndex <= 0;
+    if (redoBtn) redoBtn.disabled = mcHistoryIndex >= mcHistory.length - 1;
+}
+
+// ---------------------------------------------------
+// Rendering Overlays & Previews
+// ---------------------------------------------------
+function mcRenderAll() {
+    renderMcCropsOverlay();
+    renderMcPreviews();
+
+    const count = mcCrops.length;
+    const badgeTotal = document.getElementById('mcTotalCropsBadge');
+    const badgeSidebar = document.getElementById('mcSidebarCountBadge');
+    if (badgeTotal) badgeTotal.textContent = count;
+    if (badgeSidebar) badgeSidebar.textContent = count;
+
+    const sendBtn = document.getElementById('mcSendToTestBtn');
+    if (sendBtn) sendBtn.disabled = count === 0;
+}
+
+function renderMcCropsOverlay() {
+    const overlay = document.getElementById('mcCropOverlay');
+    if (!overlay || !mcNaturalWidth || !mcNaturalHeight) return;
+
+    overlay.innerHTML = '';
+
+    mcCrops.forEach(crop => {
+        const leftPct = (crop.x / mcNaturalWidth) * 100;
+        const topPct = (crop.y / mcNaturalHeight) * 100;
+        const widthPct = (crop.w / mcNaturalWidth) * 100;
+        const heightPct = (crop.h / mcNaturalHeight) * 100;
+
+        const box = document.createElement('div');
+        box.className = `mc-box ${crop.id === mcActiveCropId ? 'active' : ''} ${crop.isDraft ? 'draft' : ''}`;
+        box.dataset.cropId = crop.id;
+        box.style.setProperty('--mc-color', crop.color);
+        box.style.left = `${leftPct}%`;
+        box.style.top = `${topPct}%`;
+        box.style.width = `${widthPct}%`;
+        box.style.height = `${heightPct}%`;
+
+        // Badge pill
+        const badge = document.createElement('div');
+        badge.className = 'mc-box-badge';
+        badge.innerHTML = `
+            <span>Crop ${crop.num}</span>
+            <span class="mc-badge-del" title="Delete Crop" onclick="mcDeleteCrop('${crop.id}', event)">&times;</span>
+        `;
+        box.appendChild(badge);
+
+        // If active, render 8 resize handles
+        if (crop.id === mcActiveCropId && !crop.isDraft) {
+            ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].forEach(pos => {
+                const handle = document.createElement('div');
+                handle.className = `mc-handle ${pos}`;
+                handle.dataset.handle = pos;
+                handle.dataset.cropId = crop.id;
+                box.appendChild(handle);
+            });
+        }
+
+        overlay.appendChild(box);
+    });
+}
+
+function renderMcPreviews() {
+    const listEl = document.getElementById('mcPreviewsList');
+    if (!listEl) return;
+
+    if (mcCrops.length === 0) {
+        listEl.innerHTML = `
+            <div class="mc-empty-tip" id="mcEmptyTip">
+                <i class="fa-solid fa-arrow-pointer"></i>
+                <strong>No crops yet</strong><br>
+                Click and drag (or touch and drag on mobile) on the question paper to create <strong>Crop 1</strong>, <strong>Crop 2</strong>, etc.
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = '';
+
+    mcCrops.forEach(crop => {
+        const card = document.createElement('div');
+        card.className = `mc-preview-card ${crop.id === mcActiveCropId ? 'selected' : ''}`;
+        card.dataset.cropId = crop.id;
+        card.style.setProperty('--mc-color', crop.color);
+        card.onclick = () => mcSelectCrop(crop.id);
+
+        // Offscreen canvas thumbnail extraction
+        let thumbDataUrl = '';
+        if (mcImageElement && crop.w > 0 && crop.h > 0) {
+            try {
+                const off = document.createElement('canvas');
+                const maxThumbW = 280;
+                const aspect = crop.w / crop.h;
+                off.width = maxThumbW;
+                off.height = Math.max(30, Math.round(maxThumbW / aspect));
+                const ctx = off.getContext('2d');
+                ctx.drawImage(
+                    mcImageElement,
+                    crop.x, crop.y, crop.w, crop.h,
+                    0, 0, off.width, off.height
+                );
+                thumbDataUrl = off.toDataURL('image/jpeg', 0.82);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        const currentAns = crop.answer || 'A';
+
+        card.innerHTML = `
+            <div class="mc-card-img-wrap">
+                ${thumbDataUrl ? `<img src="${thumbDataUrl}" class="mc-card-img" alt="Crop ${crop.num}" />` : `<div style="padding: 1rem; color: #64748b; font-size: 0.75rem;">Rendering...</div>`}
+            </div>
+            <div class="mc-card-body">
+                <div class="mc-card-head">
+                    <span class="mc-card-title">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${crop.color};"></span>
+                        <span>Question ${crop.num}</span>
+                        <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">(${Math.round(crop.w)} &times; ${Math.round(crop.h)}px)</span>
+                    </span>
+                    <button type="button" class="mc-card-del-btn" title="Delete Crop" onclick="mcDeleteCrop('${crop.id}', event)">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+                <div class="mc-ans-selector">
+                    <span class="mc-ans-label">Answer:</span>
+                    ${['A', 'B', 'C', 'D'].map(letter => `
+                        <button type="button" class="mc-ans-pill ${letter === currentAns ? 'active' : ''}" onclick="mcSetCropAnswer('${crop.id}', '${letter}', event)">
+                            ${letter}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        listEl.appendChild(card);
+    });
+}
+
+// ---------------------------------------------------
+// Submit Crops to Create Test
+// ---------------------------------------------------
+async function mcSubmitCropsToTest() {
+    if (!mcCrops || mcCrops.length === 0) {
+        showToast('Please create at least 1 crop first by dragging on the paper.', 'error');
+        return;
+    }
+
+    if (!mcImageElement) {
+        showToast('Question paper image not loaded.', 'error');
+        return;
+    }
+
+    const title = document.getElementById('mcStudioTitleInput')?.value.trim() || 'Disha Academy Paper Assessment';
+    const duration = parseInt(document.getElementById('mcStudioDurationInput')?.value, 10) || 30;
+    const subject = document.getElementById('mcStudioSubjectInput')?.value.trim() || 'General';
+
+    const sendBtn = document.getElementById('mcSendToTestBtn');
+    const sendBtnText = document.getElementById('mcSendBtnText');
+    const origText = sendBtnText ? sendBtnText.innerHTML : 'Send to Test';
+
+    sendBtn.disabled = true;
+    if (sendBtnText) {
+        sendBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing ${mcCrops.length} Question Snapshots...`;
+    }
 
     try {
-        const response = await fetch('/api/admin/create-photo-test', {
+        const formData = new FormData();
+        const answersMap = {};
+
+        // Crop each region from the full original image via Offscreen Canvas
+        for (let i = 0; i < mcCrops.length; i++) {
+            const crop = mcCrops[i];
+            const qNo = i + 1;
+            answersMap[qNo] = crop.answer || 'A';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(10, Math.round(crop.w));
+            canvas.height = Math.max(10, Math.round(crop.h));
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(
+                mcImageElement,
+                crop.x, crop.y, crop.w, crop.h,
+                0, 0, canvas.width, canvas.height
+            );
+
+            const blob = await new Promise((resolve) => {
+                canvas.toBlob(resolve, 'image/jpeg', 0.90);
+            });
+
+            formData.append('files', blob, `question_${qNo}.jpg`);
+        }
+
+        formData.append('duration', duration);
+        formData.append('title', title);
+        formData.append('subject', subject);
+        formData.append('answers_json', JSON.stringify(answersMap));
+        formData.append('test_type', 'multiple_cuts');
+
+        const response = await fetch('/api/admin/create-image-test', {
             method: 'POST',
             body: formData
         });
 
-        clearInterval(progressTimer);
-
         if (response.status === 401) {
-            if (progressModal) progressModal.style.display = 'none';
             showToast('Session expired. Redirecting to admin login...', 'error');
             setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
             return;
         }
 
         const data = await response.json();
-
         if (response.ok && data.success) {
-            const totalQ = (data.test && data.test.total_questions) ? data.test.total_questions : 'all';
-
-            setSliceProgress(
-                100,
-                `<i class="fa-solid fa-circle-check text-green"></i> Completed! All ${totalQ} Test Questions Mapped!`,
-                `Successfully cropped ${totalQ} question screenshots from paper photos and activated test.`,
-                5
-            );
-
-            if (ring) ring.style.stroke = '#10b981';
-            const percentEl = document.getElementById('sliceProgressPercent');
-            if (percentEl) percentEl.innerHTML = `<span style="color: #10b981;">100%</span>`;
-            if (subEl) {
-                subEl.textContent = 'COMPLETED';
-                subEl.style.color = '#10b981';
-            }
-
-            for (let i = 1; i <= 5; i++) {
-                const step = document.getElementById(`stageStep${i}`);
-                if (step) step.className = 'stage-step done';
-            }
-
-            showToast(`Completed! All ${totalQ} test questions mapped!`, 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 1400);
-        } else {
-            clearInterval(progressTimer);
-            if (progressModal) progressModal.style.display = 'none';
-            showToast(data.detail || 'Failed to extract questions from test photos.', 'error');
-            submitBtn.disabled = false;
-            if (submitBtnText) submitBtnText.innerHTML = originalText;
-        }
-    } catch (err) {
-        clearInterval(progressTimer);
-        if (progressModal) progressModal.style.display = 'none';
-        console.error(err);
-        showToast('Network error while processing test photos.', 'error');
-        submitBtn.disabled = false;
-        if (submitBtnText) submitBtnText.innerHTML = originalText;
-    }
-}
-
-// ===================================================
-// Interactive Layout Review & Calibration (/train_image)
-// ===================================================
-let calibPagesData = [];
-let currentCalibPageIndex = 0;
-
-async function startInteractiveLayoutReview() {
-    if (!selectedPhotoPaperFilesArray || selectedPhotoPaperFilesArray.length === 0) {
-        showToast('Please select at least 1 test paper photo first.', 'error');
-        return;
-    }
-
-    const modal = document.getElementById('photoCalibrateModal');
-    if (!modal) return;
-
-    modal.style.display = 'flex';
-    document.getElementById('calibOverlayBoxes').innerHTML = '';
-    document.getElementById('calibQuestionsList').innerHTML = `
-        <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
-            <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-navy);"></i>
-            <p style="margin-top: 0.85rem; font-weight: 700; color: var(--primary-navy);">Analyzing paper layout & grouping questions...</p>
-            <p style="font-size: 0.82rem; margin: 0;">Detecting question anchors and option boundaries (A, B, C, D)...</p>
-        </div>
-    `;
-
-    calibPagesData = [];
-    currentCalibPageIndex = 0;
-    const totalPages = selectedPhotoPaperFilesArray.length;
-
-    try {
-        for (let i = 0; i < totalPages; i++) {
-            const listEl = document.getElementById('calibQuestionsList');
-            if (listEl) {
-                listEl.innerHTML = `
-                    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-navy);"></i>
-                        <p style="margin-top: 0.85rem; font-weight: 700; color: var(--primary-navy);">Analyzing Page ${i + 1} of ${totalPages}...</p>
-                        <p style="font-size: 0.82rem; margin: 0;">Detecting question anchors and option boundaries (A, B, C, D)...</p>
-                    </div>
-                `;
-            }
-
-            const file = selectedPhotoPaperFilesArray[i];
-            const compFile = await fastCompressImage(file, 1600, 0.85);
-
-            const formData = new FormData();
-            formData.append('file', compFile);
-
-            const res = await fetch('/api/admin/analyze-paper-layout', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.status === 401) {
-                modal.style.display = 'none';
-                showToast('Session expired. Redirecting to admin login...', 'error');
-                setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
-                return;
-            }
-
-            const data = await res.json();
-            if (res.ok && data.success) {
-                calibPagesData.push({
-                    preview_id: data.preview_id,
-                    image_url: data.image_url,
-                    filename: file.name,
-                    width: data.width,
-                    height: data.height,
-                    detected_title: data.detected_title,
-                    detected_subject: (data.detected_subjects && data.detected_subjects[0]) || 'General',
-                    detected_duration: data.detected_duration || 30,
-                    slices: JSON.parse(JSON.stringify(data.slices)),
-                    original_slices: JSON.parse(JSON.stringify(data.slices))
-                });
-            } else {
-                throw new Error(data.detail || `Failed to analyze page ${i + 1}`);
-            }
-        }
-
-        if (calibPagesData.length === 0) {
-            throw new Error('No pages could be analyzed.');
-        }
-
-        const p1 = calibPagesData[0];
-        const titleInput = document.getElementById('calibTitleInput');
-        const durationInput = document.getElementById('calibDurationInput');
-        if (titleInput) {
-            titleInput.value = document.getElementById('photoPaperTitleInput')?.value.trim() || p1.detected_title || 'Disha Academy Paper Assessment';
-        }
-        if (durationInput) {
-            durationInput.value = getSelectedPhotoPaperDuration() || p1.detected_duration || 30;
-        }
-
-        loadCalibPage(0);
-    } catch (err) {
-        console.error(err);
-        showToast(err.message || 'Error analyzing paper layout.', 'error');
-        modal.style.display = 'none';
-    }
-}
-
-function closePhotoCalibrateModal() {
-    const modal = document.getElementById('photoCalibrateModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function loadCalibPage(index) {
-    if (index < 0 || index >= calibPagesData.length) return;
-    currentCalibPageIndex = index;
-    const page = calibPagesData[index];
-
-    const img = document.getElementById('calibPaperImage');
-    if (img) {
-        img.src = page.image_url;
-    }
-
-    const pageInd = document.getElementById('calibPageIndicator');
-    if (pageInd) {
-        if (calibPagesData.length > 1) {
-            pageInd.innerHTML = `
-                <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 6px;" ${index === 0 ? 'disabled' : ''} onclick="loadCalibPage(${index - 1})">◀ Prev</button>
-                Page ${index + 1} of ${calibPagesData.length}
-                <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 6px;" ${index === calibPagesData.length - 1 ? 'disabled' : ''} onclick="loadCalibPage(${index + 1})">Next ▶</button>
-            `;
-        } else {
-            pageInd.textContent = 'Page 1 of 1';
-        }
-    }
-
-    renderCalibState();
-}
-
-function renderCalibState() {
-    const page = calibPagesData[currentCalibPageIndex];
-    if (!page) return;
-
-    const countBadge = document.getElementById('calibQuestionCountBadge');
-    if (countBadge) {
-        countBadge.textContent = `${page.slices.length} Questions Detected`;
-    }
-
-    // 1. Render Overlay boxes on image
-    const overlay = document.getElementById('calibOverlayBoxes');
-    if (overlay) {
-        overlay.innerHTML = '';
-        const W = page.width || 1;
-        const H = page.height || 1;
-
-        page.slices.forEach((sl, idx) => {
-            const topPct = (sl.ymin / H) * 100;
-            const leftPct = (sl.xmin / W) * 100;
-            const heightPct = Math.max(0.5, ((sl.ymax - sl.ymin) / H) * 100);
-            const widthPct = Math.max(1, ((sl.xmax - sl.xmin) / W) * 100);
-
-            const box = document.createElement('div');
-            box.id = `calibBox_${idx}`;
-            box.style.cssText = `
-                position: absolute;
-                top: ${topPct}%;
-                left: ${leftPct}%;
-                width: ${widthPct}%;
-                height: ${heightPct}%;
-                border: 2px solid #22c55e;
-                background: rgba(34, 197, 94, 0.14);
-                box-sizing: border-box;
-                display: flex;
-                align-items: flex-start;
-                justify-content: flex-start;
-                padding: 2px 4px;
-                transition: background 0.15s ease, border-color 0.15s ease;
-            `;
-
-            box.innerHTML = `
-                <span style="background: #16a34a; color: #ffffff; font-size: 0.68rem; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">
-                    Q${idx + 1} (${sl.correct_answer || 'A'})
-                </span>
-            `;
-            overlay.appendChild(box);
-        });
-    }
-
-    // 2. Render Question Cards in right pane
-    const list = document.getElementById('calibQuestionsList');
-    if (list) {
-        list.innerHTML = '';
-        page.slices.forEach((sl, idx) => {
-            const card = document.createElement('div');
-            card.style.cssText = `
-                background: #ffffff;
-                border: 1.5px solid #e2e8f0;
-                border-left: 4px solid #16a34a;
-                border-radius: var(--radius-sm);
-                padding: 0.55rem 0.75rem;
-                display: flex;
-                flex-direction: column;
-                gap: 0.4rem;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            `;
-
-            const currentAns = (sl.correct_answer || 'A').toUpperCase();
-
-            card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong style="color: var(--primary-navy); font-size: 0.88rem;">Question ${idx + 1}</strong>
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 5px; font-size: 0.7rem;" title="Nudge Top Boundary Up" onclick="nudgeCalibBoundary(${idx}, 'ymin', -10)">▲ Top</button>
-                        <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 5px; font-size: 0.7rem;" title="Nudge Bottom Boundary Down" onclick="nudgeCalibBoundary(${idx}, 'ymax', 10)">▼ Bot</button>
-                        <button type="button" style="border: none; background: transparent; cursor: pointer; color: #ef4444; font-size: 0.82rem; margin-left: 4px;" title="Delete this question slice" onclick="removeCalibSlice(${idx})">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
-                    <span style="color: var(--text-muted);">Y: ${sl.ymin}px – ${sl.ymax}px</span>
-                    <div style="display: inline-flex; align-items: center; gap: 4px;">
-                        <span style="font-weight: 700; color: #334155; font-size: 0.75rem;">Ans:</span>
-                        <div style="display: inline-flex; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;">
-                            ${['A', 'B', 'C', 'D'].map(k => `
-                                <button type="button" style="padding: 1px 7px; font-size: 0.75rem; font-weight: 700; border: none; cursor: pointer; background: ${currentAns === k ? '#16a34a' : '#f8fafc'}; color: ${currentAns === k ? '#ffffff' : '#334155'};" onclick="setCalibQuestionAnswer(${idx}, '${k}')">
-                                    ${k}
-                                </button>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            card.addEventListener('mouseenter', () => {
-                const b = document.getElementById(`calibBox_${idx}`);
-                if (b) {
-                    b.style.background = 'rgba(34, 197, 94, 0.35)';
-                    b.style.borderColor = '#15803d';
-                }
-            });
-            card.addEventListener('mouseleave', () => {
-                const b = document.getElementById(`calibBox_${idx}`);
-                if (b) {
-                    b.style.background = 'rgba(34, 197, 94, 0.14)';
-                    b.style.borderColor = '#22c55e';
-                }
-            });
-
-            list.appendChild(card);
-        });
-    }
-}
-
-function setCalibQuestionAnswer(qIdx, ans) {
-    const page = calibPagesData[currentCalibPageIndex];
-    if (page && page.slices[qIdx]) {
-        page.slices[qIdx].correct_answer = ans;
-        renderCalibState();
-    }
-}
-
-function nudgeCalibBoundary(qIdx, key, delta) {
-    const page = calibPagesData[currentCalibPageIndex];
-    if (!page || !page.slices[qIdx]) return;
-    const sl = page.slices[qIdx];
-    if (key === 'ymin') {
-        sl.ymin = Math.max(0, sl.ymin + delta);
-    } else if (key === 'ymax') {
-        sl.ymax = Math.min(page.height, sl.ymax + delta);
-    }
-    renderCalibState();
-}
-
-function removeCalibSlice(qIdx) {
-    const page = calibPagesData[currentCalibPageIndex];
-    if (!page || !page.slices[qIdx]) return;
-    page.slices.splice(qIdx, 1);
-    page.slices.forEach((s, i) => { s.q_no = i + 1; });
-    renderCalibState();
-}
-
-function addCalibQuestionDivider() {
-    const page = calibPagesData[currentCalibPageIndex];
-    if (!page || page.slices.length === 0) return;
-
-    const last = page.slices[page.slices.length - 1];
-    const midY = Math.round((last.ymin + last.ymax) / 2);
-
-    const newSlice = {
-        q_no: page.slices.length + 1,
-        ymin: midY,
-        xmin: last.xmin,
-        ymax: last.ymax,
-        xmax: last.xmax,
-        correct_answer: 'A'
-    };
-
-    last.ymax = midY;
-    page.slices.push(newSlice);
-    renderCalibState();
-    showToast('Added new question split cut.', 'info');
-}
-
-function resetCalibToAutoDetected() {
-    const page = calibPagesData[currentCalibPageIndex];
-    if (page && page.original_slices) {
-        page.slices = JSON.parse(JSON.stringify(page.original_slices));
-        renderCalibState();
-        showToast('Reset to original auto-detected layout.', 'info');
-    }
-}
-
-async function submitCalibratedTest() {
-    if (!calibPagesData || calibPagesData.length === 0) {
-        showToast('No calibrated pages available.', 'error');
-        return;
-    }
-
-    const title = document.getElementById('calibTitleInput')?.value.trim() || 'Disha Academy Paper Assessment';
-    const duration = parseInt(document.getElementById('calibDurationInput')?.value, 10) || 30;
-    const btn = document.getElementById('confirmCalibTestBtn');
-    const btnText = document.getElementById('confirmCalibTestBtnText');
-    const origText = btnText ? btnText.innerHTML : 'Confirm & Create Test';
-
-    btn.disabled = true;
-    if (btnText) btnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing & Finalizing Test...`;
-
-    const payload = {
-        pages: calibPagesData.map(p => ({
-            preview_id: p.preview_id,
-            slices: p.slices
-        })),
-        duration: duration,
-        title: title,
-        subject: calibPagesData[0]?.detected_subject || 'General'
-    };
-
-    try {
-        const res = await fetch('/api/admin/create-calibrated-photo-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (res.status === 401) {
-            showToast('Session expired. Redirecting to admin login...', 'error');
-            setTimeout(() => { window.location.href = '/admin/login?msg=session_expired'; }, 1000);
-            return;
-        }
-
-        const data = await res.json();
-        if (res.ok && data.success) {
-            closePhotoCalibrateModal();
-            showToast(data.message || 'Test successfully calibrated and created!', 'success');
+            closeMultipleCutsStudio();
+            showToast(`Success! Created test with ${mcCrops.length} mapped questions!`, 'success');
             setTimeout(() => {
                 window.location.reload();
             }, 1200);
         } else {
             showToast(data.detail || 'Failed to create test.', 'error');
-            btn.disabled = false;
-            if (btnText) btnText.innerHTML = origText;
+            sendBtn.disabled = false;
+            if (sendBtnText) sendBtnText.innerHTML = origText;
         }
     } catch (err) {
         console.error(err);
-        showToast('Network error while creating calibrated test.', 'error');
-        btn.disabled = false;
-        if (btnText) btnText.innerHTML = origText;
+        showToast('Network error while slicing question paper.', 'error');
+        sendBtn.disabled = false;
+        if (sendBtnText) sendBtnText.innerHTML = origText;
     }
 }
+
 
 // Delete Active Test & Associated Student Logs
 async function confirmDeleteTest() {
