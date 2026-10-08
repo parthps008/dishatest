@@ -430,9 +430,9 @@
                     <!-- Dropzone for MultipleCuts -->
                     <div class="dropzone" id="mcDropzone" onclick="document.getElementById('mcFileInput').click()">
                         <i class="fa-solid fa-crop-simple dropzone-icon" style="color: #8b5cf6;"></i>
-                        <h4>Click or drag & drop Question Paper Photo / Scan here</h4>
-                        <p>Select a question paper image (.png, .jpg, .jpeg, .webp). Expands automatically into the full-screen Multi-Cut Studio.</p>
-                        <input type="file" id="mcFileInput" name="paper_photo" accept=".png, .jpg, .jpeg, .webp" style="display: none;" onchange="handleMultipleCutsFileSelect(this)">
+                        <h4>Click or drag & drop Question Paper Photo / Scan here (1 or More Photos Supported)</h4>
+                        <p>Select one or more question paper images (.png, .jpg, .jpeg, .webp). Expands automatically into the full-screen Multi-Cut Studio with Page Tabs.</p>
+                        <input type="file" id="mcFileInput" name="paper_photos" accept=".png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="handleMultipleCutsFileSelect(this)">
                         <div id="mcSelectionBadge" style="display: none;" class="selected-file-info">
                             <i class="fa-solid fa-file-image" style="color: #8b5cf6;"></i>
                             <span id="mcSelectedFileName">paper.jpg</span>
@@ -810,6 +810,17 @@
             </button>
         </div>
     </header>
+
+    <!-- Page Tabs Bar for Multi-Page Photos -->
+    <div class="mc-tabs-container">
+        <div class="mc-tabs-list" id="mcTabsList">
+            <!-- Populated via JS: e.g. [Page 1 (10)] [Page 2 (10)] -->
+        </div>
+        <button type="button" class="mc-tab-add-btn" onclick="document.getElementById('mcAddPageInput').click()" title="Add another photo/page">
+            <i class="fa-solid fa-plus"></i> <span>Add Page</span>
+        </button>
+        <input type="file" id="mcAddPageInput" accept=".png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="mcHandleAddPageFiles(this)">
+    </div>
 
     <!-- Studio Main Content -->
     <div class="mc-studio-content">

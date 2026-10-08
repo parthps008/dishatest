@@ -789,15 +789,13 @@ async function handlePdfSliceUpload(e) {
 // ===================================================
 // Option 4: MultipleCuts (Visual Multi-Crop Paper Slicer)
 // ===================================================
-let mcCurrentFile = null;
-let mcImageElement = null;
-let mcNaturalWidth = 0;
-let mcNaturalHeight = 0;
-let mcCrops = [];
+let mcPages = []; // Array of { id, file, name, objectUrl, imageElement, naturalWidth, naturalHeight, crops: [] }
+let mcActivePageIndex = 0;
 let mcActiveCropId = null;
 let mcZoom = 1.0;
 let mcHistory = [];
 let mcHistoryIndex = -1;
+let mcPendingFiles = [];
 
 const MC_COLORS = [
     '#8b5cf6', // Violet
@@ -811,6 +809,31 @@ const MC_COLORS = [
     '#d946ef', // Fuchsia
     '#f97316'  // Orange
 ];
+
+function mcGetCurrentPage() {
+    if (!mcPages || mcPages.length === 0) return null;
+    if (mcActivePageIndex < 0 || mcActivePageIndex >= mcPages.length) {
+        mcActivePageIndex = 0;
+    }
+    return mcPages[mcActivePageIndex];
+}
+
+function mcGetTotalCropsCount() {
+    return mcPages.reduce((acc, p) => acc + (p.crops ? p.crops.length : 0), 0);
+}
+
+function mcReindexAllCrops() {
+    let globalIndex = 0;
+    mcPages.forEach((page, pageIdx) => {
+        if (!page.crops) page.crops = [];
+        page.crops.forEach(crop => {
+            globalIndex++;
+            crop.num = globalIndex;
+            crop.pageIndex = pageIdx;
+            crop.color = MC_COLORS[(globalIndex - 1) % MC_COLORS.length];
+        });
+    });
+}
 
 function initMultipleCutsDropzone() {
     const dropzone = document.getElementById('mcDropzone');
@@ -839,43 +862,58 @@ function initMultipleCutsDropzone() {
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files && files.length > 0) {
-            handleMultipleCutsIncomingFile(files[0]);
+            handleMultipleCutsIncomingFiles(files);
         }
     });
 }
 
 function handleMultipleCutsFileSelect(input) {
     if (!input.files || input.files.length === 0) return;
-    handleMultipleCutsIncomingFile(input.files[0]);
+    handleMultipleCutsIncomingFiles(input.files);
     input.value = '';
 }
 
-function handleMultipleCutsIncomingFile(file) {
+async function handleMultipleCutsIncomingFiles(fileList) {
     const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(file.type) && !['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
-        showToast('Please select a valid image (.png, .jpg, .jpeg, .webp).', 'error');
+    const validFiles = Array.from(fileList).filter(file => {
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        return allowed.includes(file.type) || ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    });
+
+    if (validFiles.length === 0) {
+        showToast('Please select valid image file(s) (.png, .jpg, .jpeg, .webp).', 'error');
         return;
     }
 
-    mcCurrentFile = file;
+    mcPendingFiles = validFiles;
 
     const badge = document.getElementById('mcSelectionBadge');
     const nameEl = document.getElementById('mcSelectedFileName');
     const sizeEl = document.getElementById('mcSelectedFileSize');
     if (badge && nameEl && sizeEl) {
-        nameEl.textContent = file.name;
-        sizeEl.textContent = `(${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        const totalBytes = validFiles.reduce((sum, f) => sum + f.size, 0);
+        const sizeMb = (totalBytes / 1024 / 1024).toFixed(2);
+        if (validFiles.length === 1) {
+            nameEl.textContent = validFiles[0].name;
+            sizeEl.textContent = `(${sizeMb} MB)`;
+        } else {
+            nameEl.textContent = `${validFiles.length} photos selected`;
+            sizeEl.textContent = `(${sizeMb} MB total)`;
+        }
         badge.style.display = 'inline-flex';
     }
 
-    // Immediately open full-screen MultipleCuts Studio
-    openMultipleCutsStudio(file);
+    await openMultipleCutsStudioWithFiles(validFiles);
 }
 
 function openMultipleCutsStudioWithSelectedFile() {
-    if (mcCurrentFile) {
-        openMultipleCutsStudio(mcCurrentFile);
+    if (mcPages && mcPages.length > 0) {
+        const modal = document.getElementById('multipleCutsStudioModal');
+        if (modal) modal.style.display = 'flex';
+        renderMcTabs();
+        mcSwitchPage(mcActivePageIndex);
+    } else if (mcPendingFiles && mcPendingFiles.length > 0) {
+        openMultipleCutsStudioWithFiles(mcPendingFiles);
     } else {
         const fileInput = document.getElementById('mcFileInput');
         if (fileInput) fileInput.click();
@@ -903,7 +941,7 @@ function getSelectedMcDuration() {
     return parseInt(select.value, 10) || 30;
 }
 
-function openMultipleCutsStudio(file) {
+async function openMultipleCutsStudioWithFiles(files) {
     const modal = document.getElementById('multipleCutsStudioModal');
     if (!modal) return;
 
@@ -921,29 +959,184 @@ function openMultipleCutsStudio(file) {
     if (sDur) sDur.value = durVal;
     if (sSubj) sSubj.value = subjVal;
 
-    // Reset crop state
-    mcCrops = [];
+    // Clean up old object URLs
+    mcPages.forEach(p => {
+        try { URL.revokeObjectURL(p.objectUrl); } catch (_) {}
+    });
+
+    const newPages = [];
+    for (const file of files) {
+        const objUrl = URL.createObjectURL(file);
+        newPages.push({
+            id: 'page_' + Math.random().toString(36).substr(2, 9),
+            file: file,
+            name: file.name,
+            objectUrl: objUrl,
+            imageElement: null,
+            naturalWidth: 0,
+            naturalHeight: 0,
+            crops: []
+        });
+    }
+
+    // Load image elements in parallel
+    await Promise.all(newPages.map(page => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            page.imageElement = img;
+            page.naturalWidth = img.naturalWidth;
+            page.naturalHeight = img.naturalHeight;
+            resolve(page);
+        };
+        img.onerror = () => {
+            console.error('Failed to load image:', page.name);
+            resolve(page);
+        };
+        img.src = page.objectUrl;
+    })));
+
+    mcPages = newPages.filter(p => p.imageElement && p.naturalWidth > 0 && p.naturalHeight > 0);
+    if (mcPages.length === 0) {
+        showToast('Could not load selected images. Please try again.', 'error');
+        modal.style.display = 'none';
+        return;
+    }
+
+    mcActivePageIndex = 0;
     mcActiveCropId = null;
     mcHistory = [];
     mcHistoryIndex = -1;
     mcSaveHistory();
 
-    const imgEl = document.getElementById('mcDisplayImage');
-    const objectUrl = URL.createObjectURL(file);
+    initMcOverlayEvents();
+    renderMcTabs();
+    mcSwitchPage(0);
+}
 
-    mcImageElement = new Image();
-    mcImageElement.onload = () => {
-        mcNaturalWidth = mcImageElement.naturalWidth;
-        mcNaturalHeight = mcImageElement.naturalHeight;
+async function mcHandleAddPageFiles(input) {
+    if (!input.files || input.files.length === 0) return;
+    const files = Array.from(input.files);
+    input.value = '';
 
-        imgEl.src = objectUrl;
-        imgEl.onload = () => {
-            mcFitToScreen();
-            initMcOverlayEvents();
-            mcRenderAll();
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const validFiles = files.filter(file => {
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        return allowed.includes(file.type) || ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    });
+
+    if (validFiles.length === 0) {
+        showToast('Please select valid image(s) (.png, .jpg, .jpeg, .webp).', 'error');
+        return;
+    }
+
+    const addedPages = [];
+    for (const file of validFiles) {
+        const objUrl = URL.createObjectURL(file);
+        addedPages.push({
+            id: 'page_' + Math.random().toString(36).substr(2, 9),
+            file: file,
+            name: file.name,
+            objectUrl: objUrl,
+            imageElement: null,
+            naturalWidth: 0,
+            naturalHeight: 0,
+            crops: []
+        });
+    }
+
+    await Promise.all(addedPages.map(page => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            page.imageElement = img;
+            page.naturalWidth = img.naturalWidth;
+            page.naturalHeight = img.naturalHeight;
+            resolve(page);
         };
-    };
-    mcImageElement.src = objectUrl;
+        img.onerror = () => resolve(page);
+        img.src = page.objectUrl;
+    })));
+
+    const validNewPages = addedPages.filter(p => p.imageElement && p.naturalWidth > 0 && p.naturalHeight > 0);
+    if (validNewPages.length === 0) {
+        showToast('Failed to load added images.', 'error');
+        return;
+    }
+
+    const startNewIdx = mcPages.length;
+    mcPages.push(...validNewPages);
+    mcReindexAllCrops();
+    mcSaveHistory();
+    renderMcTabs();
+    mcSwitchPage(startNewIdx);
+    showToast(`Added ${validNewPages.length} new page(s)! Now viewing Page ${startNewIdx + 1}.`, 'info');
+}
+
+function mcSwitchPage(index) {
+    if (index < 0 || index >= mcPages.length) return;
+    mcActivePageIndex = index;
+    const page = mcPages[mcActivePageIndex];
+    if (!page) return;
+
+    const imgEl = document.getElementById('mcDisplayImage');
+    if (imgEl) {
+        imgEl.src = page.objectUrl;
+    }
+
+    renderMcTabs();
+    mcFitToScreen();
+    mcRenderAll();
+}
+
+function mcDeletePage(idx, e) {
+    if (e) e.stopPropagation();
+    if (mcPages.length <= 1) {
+        showToast('At least 1 page must remain in the studio.', 'error');
+        return;
+    }
+
+    const page = mcPages[idx];
+    const cropCount = page.crops ? page.crops.length : 0;
+    const confirmMsg = cropCount > 0
+        ? `Delete Page ${idx + 1} and its ${cropCount} crops?`
+        : `Delete Page ${idx + 1}?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try { URL.revokeObjectURL(page.objectUrl); } catch (_) {}
+
+    mcPages.splice(idx, 1);
+    if (mcActivePageIndex >= mcPages.length) {
+        mcActivePageIndex = mcPages.length - 1;
+    }
+
+    mcReindexAllCrops();
+    mcSaveHistory();
+    renderMcTabs();
+    mcSwitchPage(mcActivePageIndex);
+}
+
+function renderMcTabs() {
+    const tabsList = document.getElementById('mcTabsList');
+    if (!tabsList) return;
+
+    tabsList.innerHTML = '';
+    mcPages.forEach((page, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `mc-tab-btn ${idx === mcActivePageIndex ? 'active' : ''}`;
+        const cropCount = page.crops ? page.crops.length : 0;
+
+        btn.innerHTML = `
+            <span><i class="fa-solid fa-file-image"></i> Page ${idx + 1}</span>
+            <span class="mc-tab-count">${cropCount}</span>
+            ${mcPages.length > 1 ? `<span class="mc-tab-del" title="Remove page" onclick="mcDeletePage(${idx}, event)">&times;</span>` : ''}
+        `;
+        btn.onclick = (e) => {
+            if (e.target.classList.contains('mc-tab-del')) return;
+            mcSwitchPage(idx);
+        };
+        tabsList.appendChild(btn);
+    });
 }
 
 function closeMultipleCutsStudio() {
@@ -958,7 +1151,8 @@ function mcZoomStep(delta) {
 
 function mcFitToScreen() {
     const stage = document.getElementById('mcStageWrap');
-    if (!stage || !mcNaturalWidth || !mcNaturalHeight) {
+    const page = mcGetCurrentPage();
+    if (!stage || !page || !page.naturalWidth || !page.naturalHeight) {
         mcZoom = 1.0;
         applyMcZoom();
         return;
@@ -967,8 +1161,8 @@ function mcFitToScreen() {
     const stageWidth = stage.clientWidth - 80;
     const stageHeight = stage.clientHeight - 80;
 
-    const scaleX = stageWidth / mcNaturalWidth;
-    const scaleY = stageHeight / mcNaturalHeight;
+    const scaleX = stageWidth / page.naturalWidth;
+    const scaleY = stageHeight / page.naturalHeight;
     mcZoom = Math.min(scaleX, scaleY, 1.0);
     if (mcZoom < 0.25) mcZoom = 0.25;
 
@@ -1025,16 +1219,18 @@ function initMcOverlayEvents() {
 
 function getPointerNaturalCoords(e) {
     const overlay = document.getElementById('mcCropOverlay');
-    const rect = overlay.getBoundingClientRect();
+    const page = mcGetCurrentPage();
+    if (!overlay || !page) return { x: 0, y: 0 };
 
+    const rect = overlay.getBoundingClientRect();
     const clientX = e.clientX;
     const clientY = e.clientY;
 
     const relX = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const relY = Math.max(0, Math.min(rect.height, clientY - rect.top));
 
-    const scaleX = mcNaturalWidth / rect.width;
-    const scaleY = mcNaturalHeight / rect.height;
+    const scaleX = page.naturalWidth / rect.width;
+    const scaleY = page.naturalHeight / rect.height;
 
     return {
         x: Math.round(relX * scaleX),
@@ -1043,7 +1239,10 @@ function getPointerNaturalCoords(e) {
 }
 
 function handleMcPointerDown(e) {
-    if (e.button !== 0 && e.pointerType === 'mouse') return; // only primary click
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    const page = mcGetCurrentPage();
+    if (!page) return;
 
     const target = e.target;
     const coords = getPointerNaturalCoords(e);
@@ -1053,7 +1252,7 @@ function handleMcPointerDown(e) {
         e.stopPropagation();
         const handleType = target.dataset.handle;
         const cropId = target.dataset.cropId;
-        const crop = mcCrops.find(c => c.id === cropId);
+        const crop = page.crops.find(c => c.id === cropId);
         if (!crop) return;
 
         mcSelectCrop(cropId);
@@ -1072,7 +1271,7 @@ function handleMcPointerDown(e) {
     if (boxEl && !target.classList.contains('mc-badge-del')) {
         e.stopPropagation();
         const cropId = boxEl.dataset.cropId;
-        const crop = mcCrops.find(c => c.id === cropId);
+        const crop = page.crops.find(c => c.id === cropId);
         if (!crop) return;
 
         mcSelectCrop(cropId);
@@ -1086,13 +1285,14 @@ function handleMcPointerDown(e) {
     }
 
     // 3. Clicked on empty overlay space -> Draw a new crop
-    const nextNum = mcCrops.length + 1;
+    const nextNum = mcGetTotalCropsCount() + 1;
     const color = MC_COLORS[(nextNum - 1) % MC_COLORS.length];
-    const newId = 'crop_' + Date.now();
+    const newId = 'crop_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
     const draftCrop = {
         id: newId,
         num: nextNum,
+        pageIndex: mcActivePageIndex,
         x: coords.x,
         y: coords.y,
         w: 0,
@@ -1102,7 +1302,7 @@ function handleMcPointerDown(e) {
         isDraft: true
     };
 
-    mcCrops.push(draftCrop);
+    page.crops.push(draftCrop);
     mcActiveCropId = newId;
 
     mcInteraction = {
@@ -1112,15 +1312,20 @@ function handleMcPointerDown(e) {
         origBox: { ...draftCrop }
     };
 
+    mcReindexAllCrops();
+    renderMcTabs();
     mcRenderAll();
 }
 
 function handleMcPointerMove(e) {
     if (!mcInteraction) return;
 
+    const page = mcGetCurrentPage();
+    if (!page) return;
+
     const coords = getPointerNaturalCoords(e);
     const { mode, cropId, startCoords, origBox, handle } = mcInteraction;
-    const crop = mcCrops.find(c => c.id === cropId);
+    const crop = page.crops.find(c => c.id === cropId);
     if (!crop) return;
 
     if (mode === 'draw') {
@@ -1131,8 +1336,8 @@ function handleMcPointerMove(e) {
 
         crop.x = Math.max(0, x1);
         crop.y = Math.max(0, y1);
-        crop.w = Math.min(mcNaturalWidth - crop.x, x2 - x1);
-        crop.h = Math.min(mcNaturalHeight - crop.y, y2 - y1);
+        crop.w = Math.min(page.naturalWidth - crop.x, x2 - x1);
+        crop.h = Math.min(page.naturalHeight - crop.y, y2 - y1);
 
         updateCropBoxDom(crop);
     } else if (mode === 'move') {
@@ -1142,8 +1347,8 @@ function handleMcPointerMove(e) {
         let newX = origBox.x + dx;
         let newY = origBox.y + dy;
 
-        newX = Math.max(0, Math.min(mcNaturalWidth - origBox.w, newX));
-        newY = Math.max(0, Math.min(mcNaturalHeight - origBox.h, newY));
+        newX = Math.max(0, Math.min(page.naturalWidth - origBox.w, newX));
+        newY = Math.max(0, Math.min(page.naturalHeight - origBox.h, newY));
 
         crop.x = newX;
         crop.y = newY;
@@ -1165,8 +1370,8 @@ function handleMcPointerMove(e) {
 
         x1 = Math.max(0, x1);
         y1 = Math.max(0, y1);
-        x2 = Math.min(mcNaturalWidth, x2);
-        y2 = Math.min(mcNaturalHeight, y2);
+        x2 = Math.min(page.naturalWidth, x2);
+        y2 = Math.min(page.naturalHeight, y2);
 
         crop.x = x1;
         crop.y = y1;
@@ -1180,37 +1385,43 @@ function handleMcPointerMove(e) {
 function handleMcPointerUp(e) {
     if (!mcInteraction) return;
 
+    const page = mcGetCurrentPage();
     const { mode, cropId } = mcInteraction;
     mcInteraction = null;
 
-    const crop = mcCrops.find(c => c.id === cropId);
+    if (!page) return;
+    const crop = page.crops.find(c => c.id === cropId);
     if (!crop) return;
 
     if (mode === 'draw') {
         crop.isDraft = false;
-        // If box too small (< 25px in any dimension), discard it as accidental click
+        // If box too small (< 25px in any dimension), discard it
         if (crop.w < 25 || crop.h < 25) {
-            mcCrops = mcCrops.filter(c => c.id !== cropId);
-            mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+            page.crops = page.crops.filter(c => c.id !== cropId);
+            mcActiveCropId = page.crops.length > 0 ? page.crops[page.crops.length - 1].id : null;
         } else {
-            mcReindexCrops();
+            mcReindexAllCrops();
             mcSaveHistory();
         }
     } else if (mode === 'move' || mode === 'resize') {
         mcSaveHistory();
     }
 
+    renderMcTabs();
     mcRenderAll();
 }
 
 function updateCropBoxDom(crop) {
-    const boxEl = document.querySelector(`.mc-box[data-crop-id="${crop.id}"]`);
-    if (!boxEl || !mcNaturalWidth || !mcNaturalHeight) return;
+    const page = mcGetCurrentPage();
+    if (!page || !page.naturalWidth || !page.naturalHeight) return;
 
-    const leftPct = (crop.x / mcNaturalWidth) * 100;
-    const topPct = (crop.y / mcNaturalHeight) * 100;
-    const widthPct = (crop.w / mcNaturalWidth) * 100;
-    const heightPct = (crop.h / mcNaturalHeight) * 100;
+    const boxEl = document.querySelector(`.mc-box[data-crop-id="${crop.id}"]`);
+    if (!boxEl) return;
+
+    const leftPct = (crop.x / page.naturalWidth) * 100;
+    const topPct = (crop.y / page.naturalHeight) * 100;
+    const widthPct = (crop.w / page.naturalWidth) * 100;
+    const heightPct = (crop.h / page.naturalHeight) * 100;
 
     boxEl.style.left = `${leftPct}%`;
     boxEl.style.top = `${topPct}%`;
@@ -1219,10 +1430,22 @@ function updateCropBoxDom(crop) {
 }
 
 function mcSelectCrop(cropId) {
+    // Find which page owns this crop
+    let foundPageIdx = -1;
+    for (let i = 0; i < mcPages.length; i++) {
+        if (mcPages[i].crops && mcPages[i].crops.some(c => c.id === cropId)) {
+            foundPageIdx = i;
+            break;
+        }
+    }
+
+    if (foundPageIdx !== -1 && foundPageIdx !== mcActivePageIndex) {
+        mcSwitchPage(foundPageIdx);
+    }
+
     mcActiveCropId = cropId;
     mcRenderAll();
 
-    // Scroll preview card into view
     const cardEl = document.querySelector(`.mc-preview-card[data-crop-id="${cropId}"]`);
     if (cardEl) {
         cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1231,38 +1454,60 @@ function mcSelectCrop(cropId) {
 
 function mcDeleteCrop(cropId, e) {
     if (e) e.stopPropagation();
-    mcCrops = mcCrops.filter(c => c.id !== cropId);
+
+    mcPages.forEach(p => {
+        if (p.crops) {
+            p.crops = p.crops.filter(c => c.id !== cropId);
+        }
+    });
+
     if (mcActiveCropId === cropId) {
-        mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+        const curPage = mcGetCurrentPage();
+        mcActiveCropId = (curPage && curPage.crops.length > 0)
+            ? curPage.crops[curPage.crops.length - 1].id
+            : null;
     }
-    mcReindexCrops();
+
+    mcReindexAllCrops();
     mcSaveHistory();
+    renderMcTabs();
     mcRenderAll();
 }
 
 function mcClearAllCrops() {
-    if (mcCrops.length === 0) return;
-    if (!confirm('Are you sure you want to clear all crop boxes?')) return;
-    mcCrops = [];
-    mcActiveCropId = null;
-    mcSaveHistory();
-    mcRenderAll();
-}
+    const curPage = mcGetCurrentPage();
+    if (!curPage) return;
+    const pageCropCount = curPage.crops ? curPage.crops.length : 0;
+    const totalCount = mcGetTotalCropsCount();
 
-function mcReindexCrops() {
-    mcCrops.forEach((c, idx) => {
-        c.num = idx + 1;
-        c.color = MC_COLORS[idx % MC_COLORS.length];
-    });
+    if (totalCount === 0) return;
+
+    if (mcPages.length === 1) {
+        if (!confirm('Are you sure you want to clear all crop boxes?')) return;
+        curPage.crops = [];
+    } else {
+        const choice = confirm(`Clear ${pageCropCount} crops on Page ${mcActivePageIndex + 1}? Click OK to clear this page, or Cancel to keep.`);
+        if (!choice) return;
+        curPage.crops = [];
+    }
+
+    mcActiveCropId = null;
+    mcReindexAllCrops();
+    mcSaveHistory();
+    renderMcTabs();
+    mcRenderAll();
 }
 
 function mcSetCropAnswer(cropId, ans, e) {
     if (e) e.stopPropagation();
-    const crop = mcCrops.find(c => c.id === cropId);
-    if (crop) {
-        crop.answer = ans;
-        mcSaveHistory();
-        renderMcPreviews();
+    for (const page of mcPages) {
+        const crop = page.crops ? page.crops.find(c => c.id === cropId) : null;
+        if (crop) {
+            crop.answer = ans;
+            mcSaveHistory();
+            renderMcPreviews();
+            break;
+        }
     }
 }
 
@@ -1270,12 +1515,15 @@ function mcSetCropAnswer(cropId, ans, e) {
 // History (Undo / Redo)
 // ---------------------------------------------------
 function mcSaveHistory() {
-    // If not at the end of history, truncate redo states
     if (mcHistoryIndex < mcHistory.length - 1) {
         mcHistory = mcHistory.slice(0, mcHistoryIndex + 1);
     }
 
-    const snapshot = JSON.stringify(mcCrops);
+    const snapshot = JSON.stringify(mcPages.map(p => ({
+        id: p.id,
+        crops: (p.crops || []).map(c => ({ ...c }))
+    })));
+
     mcHistory.push(snapshot);
     if (mcHistory.length > 30) mcHistory.shift();
     mcHistoryIndex = mcHistory.length - 1;
@@ -1286,22 +1534,34 @@ function mcSaveHistory() {
 function mcUndo() {
     if (mcHistoryIndex > 0) {
         mcHistoryIndex--;
-        mcCrops = JSON.parse(mcHistory[mcHistoryIndex]);
-        mcReindexCrops();
-        mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
-        updateMcHistoryButtons();
-        mcRenderAll();
+        restoreFromHistory(mcHistory[mcHistoryIndex]);
     }
 }
 
 function mcRedo() {
     if (mcHistoryIndex < mcHistory.length - 1) {
         mcHistoryIndex++;
-        mcCrops = JSON.parse(mcHistory[mcHistoryIndex]);
-        mcReindexCrops();
-        mcActiveCropId = mcCrops.length > 0 ? mcCrops[mcCrops.length - 1].id : null;
+        restoreFromHistory(mcHistory[mcHistoryIndex]);
+    }
+}
+
+function restoreFromHistory(jsonStr) {
+    try {
+        const savedPages = JSON.parse(jsonStr);
+        savedPages.forEach(sp => {
+            const page = mcPages.find(p => p.id === sp.id);
+            if (page) {
+                page.crops = sp.crops || [];
+            }
+        });
+        mcReindexAllCrops();
+        const curPage = mcGetCurrentPage();
+        mcActiveCropId = (curPage && curPage.crops.length > 0) ? curPage.crops[curPage.crops.length - 1].id : null;
         updateMcHistoryButtons();
+        renderMcTabs();
         mcRenderAll();
+    } catch (err) {
+        console.error('Failed to restore history', err);
     }
 }
 
@@ -1319,7 +1579,7 @@ function mcRenderAll() {
     renderMcCropsOverlay();
     renderMcPreviews();
 
-    const count = mcCrops.length;
+    const count = mcGetTotalCropsCount();
     const badgeTotal = document.getElementById('mcTotalCropsBadge');
     const badgeSidebar = document.getElementById('mcSidebarCountBadge');
     if (badgeTotal) badgeTotal.textContent = count;
@@ -1331,15 +1591,16 @@ function mcRenderAll() {
 
 function renderMcCropsOverlay() {
     const overlay = document.getElementById('mcCropOverlay');
-    if (!overlay || !mcNaturalWidth || !mcNaturalHeight) return;
+    const curPage = mcGetCurrentPage();
+    if (!overlay || !curPage || !curPage.naturalWidth || !curPage.naturalHeight) return;
 
     overlay.innerHTML = '';
 
-    mcCrops.forEach(crop => {
-        const leftPct = (crop.x / mcNaturalWidth) * 100;
-        const topPct = (crop.y / mcNaturalHeight) * 100;
-        const widthPct = (crop.w / mcNaturalWidth) * 100;
-        const heightPct = (crop.h / mcNaturalHeight) * 100;
+    (curPage.crops || []).forEach(crop => {
+        const leftPct = (crop.x / curPage.naturalWidth) * 100;
+        const topPct = (crop.y / curPage.naturalHeight) * 100;
+        const widthPct = (crop.w / curPage.naturalWidth) * 100;
+        const heightPct = (crop.h / curPage.naturalHeight) * 100;
 
         const box = document.createElement('div');
         box.className = `mc-box ${crop.id === mcActiveCropId ? 'active' : ''} ${crop.isDraft ? 'draft' : ''}`;
@@ -1378,7 +1639,8 @@ function renderMcPreviews() {
     const listEl = document.getElementById('mcPreviewsList');
     if (!listEl) return;
 
-    if (mcCrops.length === 0) {
+    const totalCrops = mcGetTotalCropsCount();
+    if (totalCrops === 0) {
         listEl.innerHTML = `
             <div class="mc-empty-tip" id="mcEmptyTip">
                 <i class="fa-solid fa-arrow-pointer"></i>
@@ -1391,63 +1653,80 @@ function renderMcPreviews() {
 
     listEl.innerHTML = '';
 
-    mcCrops.forEach(crop => {
-        const card = document.createElement('div');
-        card.className = `mc-preview-card ${crop.id === mcActiveCropId ? 'selected' : ''}`;
-        card.dataset.cropId = crop.id;
-        card.style.setProperty('--mc-color', crop.color);
-        card.onclick = () => mcSelectCrop(crop.id);
+    mcPages.forEach((page, pageIdx) => {
+        if (!page.crops || page.crops.length === 0) return;
 
-        // Offscreen canvas thumbnail extraction
-        let thumbDataUrl = '';
-        if (mcImageElement && crop.w > 0 && crop.h > 0) {
-            try {
-                const off = document.createElement('canvas');
-                const maxThumbW = 280;
-                const aspect = crop.w / crop.h;
-                off.width = maxThumbW;
-                off.height = Math.max(30, Math.round(maxThumbW / aspect));
-                const ctx = off.getContext('2d');
-                ctx.drawImage(
-                    mcImageElement,
-                    crop.x, crop.y, crop.w, crop.h,
-                    0, 0, off.width, off.height
-                );
-                thumbDataUrl = off.toDataURL('image/jpeg', 0.82);
-            } catch (e) {
-                console.error(e);
-            }
+        // If multiple pages, add a subtle section heading for each page
+        if (mcPages.length > 1) {
+            const pageHeader = document.createElement('div');
+            pageHeader.className = 'mc-sidebar-page-header';
+            pageHeader.style.cssText = 'padding: 8px 12px; font-size: 0.76rem; font-weight: 700; color: #a78bfa; background: rgba(139, 92, 246, 0.12); border-radius: 6px; margin: 8px 0 4px; display: flex; justify-content: space-between; align-items: center;';
+            pageHeader.innerHTML = `
+                <span><i class="fa-solid fa-file-image"></i> Page ${pageIdx + 1} (${page.crops.length} Qs)</span>
+                <span style="font-size: 0.7rem; color: #94a3b8; cursor: pointer;" onclick="mcSwitchPage(${pageIdx})">View Page &rarr;</span>
+            `;
+            listEl.appendChild(pageHeader);
         }
 
-        const currentAns = crop.answer || 'A';
+        page.crops.forEach(crop => {
+            const card = document.createElement('div');
+            card.className = `mc-preview-card ${crop.id === mcActiveCropId ? 'selected' : ''}`;
+            card.dataset.cropId = crop.id;
+            card.style.setProperty('--mc-color', crop.color);
+            card.onclick = () => mcSelectCrop(crop.id);
 
-        card.innerHTML = `
-            <div class="mc-card-img-wrap">
-                ${thumbDataUrl ? `<img src="${thumbDataUrl}" class="mc-card-img" alt="Crop ${crop.num}" />` : `<div style="padding: 1rem; color: #64748b; font-size: 0.75rem;">Rendering...</div>`}
-            </div>
-            <div class="mc-card-body">
-                <div class="mc-card-head">
-                    <span class="mc-card-title">
-                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${crop.color};"></span>
-                        <span>Question ${crop.num}</span>
-                        <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">(${Math.round(crop.w)} &times; ${Math.round(crop.h)}px)</span>
-                    </span>
-                    <button type="button" class="mc-card-del-btn" title="Delete Crop" onclick="mcDeleteCrop('${crop.id}', event)">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
+            // Offscreen canvas thumbnail extraction
+            let thumbDataUrl = '';
+            if (page.imageElement && crop.w > 0 && crop.h > 0) {
+                try {
+                    const off = document.createElement('canvas');
+                    const maxThumbW = 280;
+                    const aspect = crop.w / crop.h;
+                    off.width = maxThumbW;
+                    off.height = Math.max(30, Math.round(maxThumbW / aspect));
+                    const ctx = off.getContext('2d');
+                    ctx.drawImage(
+                        page.imageElement,
+                        crop.x, crop.y, crop.w, crop.h,
+                        0, 0, off.width, off.height
+                    );
+                    thumbDataUrl = off.toDataURL('image/jpeg', 0.82);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            const currentAns = crop.answer || 'A';
+
+            card.innerHTML = `
+                <div class="mc-card-img-wrap">
+                    ${thumbDataUrl ? `<img src="${thumbDataUrl}" class="mc-card-img" alt="Crop ${crop.num}" />` : `<div style="padding: 1rem; color: #64748b; font-size: 0.75rem;">Rendering...</div>`}
                 </div>
-                <div class="mc-ans-selector">
-                    <span class="mc-ans-label">Answer:</span>
-                    ${['A', 'B', 'C', 'D'].map(letter => `
-                        <button type="button" class="mc-ans-pill ${letter === currentAns ? 'active' : ''}" onclick="mcSetCropAnswer('${crop.id}', '${letter}', event)">
-                            ${letter}
+                <div class="mc-card-body">
+                    <div class="mc-card-head">
+                        <span class="mc-card-title">
+                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${crop.color};"></span>
+                            <span>Question ${crop.num}</span>
+                            <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">(${Math.round(crop.w)} &times; ${Math.round(crop.h)}px)</span>
+                            ${mcPages.length > 1 ? `<span class="badge" style="font-size: 0.65rem; padding: 1px 5px; background: rgba(255,255,255,0.08); color: #cbd5e1;">P${pageIdx + 1}</span>` : ''}
+                        </span>
+                        <button type="button" class="mc-card-del-btn" title="Delete Crop" onclick="mcDeleteCrop('${crop.id}', event)">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
-                    `).join('')}
+                    </div>
+                    <div class="mc-ans-selector">
+                        <span class="mc-ans-label">Answer:</span>
+                        ${['A', 'B', 'C', 'D'].map(letter => `
+                            <button type="button" class="mc-ans-pill ${letter === currentAns ? 'active' : ''}" onclick="mcSetCropAnswer('${crop.id}', '${letter}', event)">
+                                ${letter}
+                            </button>
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        listEl.appendChild(card);
+            listEl.appendChild(card);
+        });
     });
 }
 
@@ -1455,13 +1734,9 @@ function renderMcPreviews() {
 // Submit Crops to Create Test
 // ---------------------------------------------------
 async function mcSubmitCropsToTest() {
-    if (!mcCrops || mcCrops.length === 0) {
+    const totalCrops = mcGetTotalCropsCount();
+    if (totalCrops === 0) {
         showToast('Please create at least 1 crop first by dragging on the paper.', 'error');
-        return;
-    }
-
-    if (!mcImageElement) {
-        showToast('Question paper image not loaded.', 'error');
         return;
     }
 
@@ -1475,35 +1750,41 @@ async function mcSubmitCropsToTest() {
 
     sendBtn.disabled = true;
     if (sendBtnText) {
-        sendBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing ${mcCrops.length} Question Snapshots...`;
+        sendBtnText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Slicing ${totalCrops} Question Snapshots across ${mcPages.length} page(s)...`;
     }
 
     try {
         const formData = new FormData();
         const answersMap = {};
+        let qNo = 0;
 
-        // Crop each region from the full original image via Offscreen Canvas
-        for (let i = 0; i < mcCrops.length; i++) {
-            const crop = mcCrops[i];
-            const qNo = i + 1;
-            answersMap[qNo] = crop.answer || 'A';
+        // Iterate through all pages in order, and every crop in order
+        for (let pIdx = 0; pIdx < mcPages.length; pIdx++) {
+            const page = mcPages[pIdx];
+            if (!page.crops || page.crops.length === 0) continue;
 
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.max(10, Math.round(crop.w));
-            canvas.height = Math.max(10, Math.round(crop.h));
+            for (let cIdx = 0; cIdx < page.crops.length; cIdx++) {
+                const crop = page.crops[cIdx];
+                qNo++;
+                answersMap[qNo] = crop.answer || 'A';
 
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(
-                mcImageElement,
-                crop.x, crop.y, crop.w, crop.h,
-                0, 0, canvas.width, canvas.height
-            );
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(10, Math.round(crop.w));
+                canvas.height = Math.max(10, Math.round(crop.h));
 
-            const blob = await new Promise((resolve) => {
-                canvas.toBlob(resolve, 'image/jpeg', 0.90);
-            });
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(
+                    page.imageElement,
+                    crop.x, crop.y, crop.w, crop.h,
+                    0, 0, canvas.width, canvas.height
+                );
 
-            formData.append('files', blob, `question_${qNo}.jpg`);
+                const blob = await new Promise((resolve) => {
+                    canvas.toBlob(resolve, 'image/jpeg', 0.90);
+                });
+
+                formData.append('files', blob, `question_${qNo}.jpg`);
+            }
         }
 
         formData.append('duration', duration);
@@ -1526,7 +1807,7 @@ async function mcSubmitCropsToTest() {
         const data = await response.json();
         if (response.ok && data.success) {
             closeMultipleCutsStudio();
-            showToast(`Success! Created test with ${mcCrops.length} mapped questions!`, 'success');
+            showToast(`Success! Created test with ${totalCrops} questions across ${mcPages.length} page(s)!`, 'success');
             setTimeout(() => {
                 window.location.reload();
             }, 1200);

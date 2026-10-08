@@ -993,6 +993,112 @@
     transform: scale(1.05);
 }
 
+/* Page Tabs Bar for Multi-Page Photos */
+.mc-tabs-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: #090e1a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    z-index: 10;
+}
+
+.mc-tabs-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.mc-tabs-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+.mc-tabs-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+}
+
+.mc-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.mc-tab-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.mc-tab-btn.active {
+    background: #1e293b;
+    border-color: #8b5cf6;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+}
+
+.mc-tab-count {
+    background: rgba(255, 255, 255, 0.15);
+    color: #cbd5e1;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+.mc-tab-btn.active .mc-tab-count {
+    background: rgba(139, 92, 246, 0.4);
+    color: #c4b5fd;
+}
+
+.mc-tab-del {
+    color: #64748b;
+    font-size: 0.85rem;
+    padding: 0 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.mc-tab-del:hover {
+    color: #ef4444;
+}
+
+.mc-tab-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #c4b5fd;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px dashed rgba(139, 92, 246, 0.5);
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.mc-tab-add-btn:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: #8b5cf6;
+    color: #ffffff;
+}
+
 .mc-studio-content {
     display: flex;
     flex: 1;
