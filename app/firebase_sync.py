@@ -121,7 +121,11 @@ class FirebaseSync:
     def test_connection(cls) -> Tuple[bool, str]:
         if not cls.is_enabled():
             return False, "FIREBASE_DATABASE_URL is not configured."
-        url = cls._build_url(".info/connected")
+        base = cls.get_database_url()
+        secret = cls.get_database_secret()
+        url = f"{base}/.json?shallow=true"
+        if secret:
+            url += f"&auth={secret}"
         try:
             req = urllib.request.Request(url, method="GET")
             with urllib.request.urlopen(req, timeout=8) as resp:
@@ -377,21 +381,29 @@ class FirebaseSync:
             return
 
         print("[FirebaseSync] Initializing cloud sync with Firebase...")
-        # 1. Restore active test if missing locally
-        if not os.path.exists(ACTIVE_TEST_FILE):
-            cls.fetch_active_test_from_cloud()
+        # 1. Restore active test from cloud (Firebase is authoritative source of truth)
+        cloud_test = cls.fetch_active_test_from_cloud()
+        if cloud_test:
+            print(f"[FirebaseSync] Cloud active test '{cloud_test.get('title')}' successfully rehydrated!")
         else:
-            # If local active test exists, ensure it is also pushed to cloud
-            try:
-                with open(ACTIVE_TEST_FILE, "r", encoding="utf-8") as f:
-                    local_test = json.load(f)
-                if local_test and isinstance(local_test, dict):
-                    # Check if cloud has it
-                    cloud_test = cls.fetch_active_test_from_cloud()
-                    if not cloud_test:
-                        cls.sync_active_test_to_cloud(local_test)
-            except Exception:
-                pass
+            # Cloud has NO active test. Check if cloud explicitly returned null
+            # If so, clean up any stale local active_test.json leftover from git clone or deleted test
+            if os.path.exists(ACTIVE_TEST_FILE):
+                try:
+                    base = cls.get_database_url()
+                    secret = cls.get_database_secret()
+                    url = f"{base}/active_test.json"
+                    if secret:
+                        url += f"?auth={secret}"
+                    req = urllib.request.Request(url, method="GET")
+                    with urllib.request.urlopen(req, timeout=8) as resp:
+                        if resp.status == 200:
+                            raw = resp.read().decode("utf-8").strip()
+                            if raw == "null" or not raw:
+                                os.remove(ACTIVE_TEST_FILE)
+                                print("[FirebaseSync] Cloud has no active test; removed stale local cache.")
+                except Exception as e:
+                    print(f"[FirebaseSync] Verify cloud empty error: {e}")
 
         # 2. Restore submissions index if missing locally
         if not os.path.exists(SUBMISSIONS_INDEX_FILE):

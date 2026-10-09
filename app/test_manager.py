@@ -33,7 +33,25 @@ class TestManager:
             return None
         try:
             with open(ACTIVE_TEST_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                test = json.load(f)
+
+            # If Render container restarted and ephemeral question images were wiped, rehydrate from Firebase
+            if test and isinstance(test, dict) and "questions" in test:
+                needs_image_restore = False
+                for q in test.get("questions", []):
+                    img_url = q.get("image_url")
+                    if img_url and isinstance(img_url, str) and img_url.startswith("/static/uploads/"):
+                        rel_path = img_url.lstrip("/").replace("/", os.sep)
+                        full_img = os.path.join(BASE_DIR, rel_path)
+                        if not os.path.exists(full_img):
+                            needs_image_restore = True
+                            break
+                if needs_image_restore:
+                    cloud_test = FirebaseSync.fetch_active_test_from_cloud()
+                    if cloud_test:
+                        return cloud_test
+
+            return test
         except Exception as e:
             print(f"Error loading active test: {e}")
             cloud_test = FirebaseSync.fetch_active_test_from_cloud()
@@ -77,7 +95,10 @@ class TestManager:
     def _save_active_test_and_sync(active_test: Dict[str, Any]):
         with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
             json.dump(active_test, f, indent=2, ensure_ascii=False)
-        FirebaseSync.sync_active_test_to_cloud_async(active_test)
+        try:
+            FirebaseSync.sync_active_test_to_cloud(active_test)
+        except Exception as e:
+            print(f"[TestManager] Sync to Firebase error: {e}")
 
     @staticmethod
     def set_active_test(test_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -100,8 +121,11 @@ class TestManager:
         active_test = TestManager.get_active_test()
         test_id = active_test.get("id") if active_test else None
 
-        # Delete from Firebase cloud database
-        FirebaseSync.delete_active_test_from_cloud_async()
+        # Delete from Firebase cloud database synchronously to prevent race conditions
+        try:
+            FirebaseSync.delete_active_test_from_cloud()
+        except Exception as e:
+            print(f"[TestManager] Error deleting from Firebase: {e}")
 
         # 1. Delete all submission files for this test
         if test_id and os.path.exists(SUBMISSIONS_INDEX_FILE):

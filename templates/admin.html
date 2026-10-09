@@ -15,6 +15,9 @@
             <p>Upload question paper PDFs, configure dynamic durations, inspect extracted MCQs, and manage tests.</p>
         </div>
         <div class="admin-actions-bar">
+            <button type="button" class="btn btn-outline" id="firebaseConfigBtn" onclick="openFirebaseModal()" title="Google Firebase 24/7 Cloud Persistence">
+                <i class="fa-solid fa-cloud-bolt text-green" id="fbHeaderIcon"></i> <span id="firebaseStatusText">Cloud Sync: Active</span>
+            </button>
             <a href="/?from=admin" target="_blank" class="btn btn-primary" title="Open Student Test View">
                 <i class="fa-solid fa-graduation-cap"></i> <span>Student Portal</span>
             </a>
