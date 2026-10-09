@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -87,13 +87,19 @@ async def home_page(request: Request):
 
 @app.get("/test", response_class=HTMLResponse)
 async def test_page(request: Request, name: Optional[str] = None, roll: Optional[str] = None):
-    """Test interface for students."""
-    active_test = TestManager.get_active_test_for_student()
+    """Test interface for students with randomized question sequence per candidate session."""
+    cookie_seed = request.cookies.get("disha_test_seed")
+    if cookie_seed:
+        seed = cookie_seed
+    else:
+        seed = f"{roll or ''}_{name or ''}_{uuid.uuid4().hex[:8]}"
+
+    active_test = TestManager.get_active_test_for_student(shuffle_seed=seed)
     if not active_test:
         return RedirectResponse(url="/?error=no_active_test")
     
     is_admin = check_is_admin(request)
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="test.html",
         context={
@@ -104,6 +110,9 @@ async def test_page(request: Request, name: Optional[str] = None, roll: Optional
             "is_admin": is_admin
         }
     )
+    if not cookie_seed:
+        response.set_cookie(key="disha_test_seed", value=seed, max_age=14400, httponly=True)
+    return response
 
 @app.get("/result/{submission_id}", response_class=HTMLResponse)
 async def result_page(request: Request, submission_id: str):
@@ -1081,3 +1090,31 @@ async def trigger_firebase_sync_now_api(request: Request):
         "submissions_count": len(subs),
         "message": "Active test and submissions synchronized with Firebase cloud database!"
     }
+
+@app.get("/api/admin/export-percentile-pdf")
+async def export_percentile_pdf_api(request: Request):
+    """Downloads an official NTA/CET-style Percentile Merit List PDF for the active test."""
+    require_admin_auth(request)
+    active_test = TestManager.get_active_test()
+    if not active_test:
+        raise HTTPException(status_code=400, detail="No active test is currently live.")
+
+    submissions = TestManager.get_active_test_submissions()
+    if not submissions:
+        raise HTTPException(status_code=400, detail="No student submissions recorded yet for this active test.")
+
+    from app.percentile_pdf import generate_percentile_merit_list_pdf
+    pdf_bytes = generate_percentile_merit_list_pdf(active_test, submissions)
+
+    safe_title = "".join(c for c in active_test.get("title", "Test") if c.isalnum() or c in (' ', '_', '-')).strip()
+    safe_title = safe_title.replace(" ", "_")[:40] or "Assessment"
+    filename = f"Disha_Academy_Percentile_Report_{safe_title}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+

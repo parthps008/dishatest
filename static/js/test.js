@@ -153,7 +153,8 @@ function loadQuestion(index) {
 
     currentIndex = index;
     const q = data.questions[index];
-    const qNum = q.q_no || (index + 1);
+    const displayNum = q.display_q_no || (index + 1);
+    const qKey = q.q_no || (index + 1);
 
     // If this question was never visited, mark it as visited / not_answered (RED)
     if (questionStates[index] === 'not_visited') {
@@ -162,7 +163,7 @@ function loadQuestion(index) {
 
     // Question Number & Subject
     const numEl = document.getElementById('qNumberDisplay');
-    if (numEl) numEl.textContent = `Question No. ${qNum} of ${totalQuestions}`;
+    if (numEl) numEl.textContent = `Question No. ${displayNum} of ${totalQuestions}`;
 
     const subjEl = document.getElementById('qSubjectBadge');
     if (subjEl) subjEl.textContent = q.subject || 'General';
@@ -178,7 +179,7 @@ function loadQuestion(index) {
             textEl.style.display = 'none';
         } else {
             textEl.style.display = 'block';
-            textEl.textContent = q.text || `Question ${qNum}`;
+            textEl.textContent = q.text || `Question ${displayNum}`;
         }
     }
 
@@ -414,16 +415,16 @@ function renderPaletteGrid() {
 
     let html = "";
     data.questions.forEach((q, idx) => {
-        const qNum = q.q_no || (idx + 1);
+        const displayNum = q.display_q_no || (idx + 1);
         const subj = q.subject || 'General';
         html += `
             <div class="palette-box state-not-visited" 
                  id="palette_box_${idx}" 
                  data-index="${idx}" 
                  data-subject="${subj}"
-                 title="Question ${qNum} (${subj})"
+                 title="Question ${displayNum} (${subj})"
                  onclick="jumpToQuestion(${idx})">
-                ${qNum}
+                ${displayNum}
             </div>
         `;
     });

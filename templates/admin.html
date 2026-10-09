@@ -500,7 +500,12 @@
     <div class="admin-card">
         <div class="admin-card-header">
             <h3><i class="fa-solid fa-trophy text-gold"></i> Active Test Leaderboard & Student Submissions</h3>
-            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
+                {% if submissions %}
+                <a href="/api/admin/export-percentile-pdf" target="_blank" class="btn btn-primary" title="Download Official NTA/CET Percentile Merit List PDF" style="background: #166534; border: 1.5px solid #15803d; color: #ffffff; padding: 0.4rem 0.95rem; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; border-radius: var(--radius-sm); text-decoration: none; box-shadow: 0 2px 8px rgba(22, 101, 52, 0.25);">
+                    <i class="fa-solid fa-file-pdf"></i> <span>Download PDF as Percentile</span>
+                </a>
+                {% endif %}
                 <span class="badge badge-gold"><i class="fa-solid fa-filter"></i> Active Test Only</span>
                 <span class="badge badge-navy">{{ submissions|length }} Submissions</span>
             </div>
@@ -516,6 +521,7 @@
                             <th>Roll No</th>
                             <th>Score</th>
                             <th>Percentage</th>
+                            <th style="background: #064e3b; color: #ffffff;">Percentile (%ile)</th>
                             <th>Correct / Wrong / Blank</th>
                             <th>Time Taken</th>
                             <th>Type</th>
@@ -558,6 +564,11 @@
                             <td>
                                 <span class="badge {% if s.percentage >= 60 %}badge-green{% elif s.percentage >= 40 %}badge-gold{% else %}badge-red{% endif %}">
                                     {{ s.percentage }}%
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #ecfdf5; color: #047857; font-weight: 800; border: 1px solid #a7f3d0; font-size: 0.85rem;">
+                                    <i class="fa-solid fa-award"></i> {{ s.percentile }}%ile
                                 </span>
                             </td>
                             <td>

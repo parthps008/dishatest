@@ -89,8 +89,20 @@
                 <div class="score-number">
                     {{ sub.total_score }} <small>/ {{ sub.max_score }} Marks</small>
                 </div>
-                <div class="score-percent-badge">
-                    <i class="fa-solid fa-percent"></i> Score: {{ sub.percentage }}%
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.25rem;">
+                    <div class="score-percent-badge">
+                        <i class="fa-solid fa-percent"></i> Score: {{ sub.percentage }}%
+                    </div>
+                    {% if sub.percentile is defined and sub.percentile is not none %}
+                    <div class="score-percent-badge" style="background: #ecfdf5; border: 1.5px solid #10b981; color: #047857; font-weight: 800;">
+                        <i class="fa-solid fa-award"></i> NTA/CET Percentile: {{ sub.percentile }}%ile
+                    </div>
+                    {% endif %}
+                    {% if sub.rank is defined and sub.rank is not none %}
+                    <div class="score-percent-badge" style="background: #fef3c7; border: 1.5px solid #f59e0b; color: #92400e; font-weight: 800;">
+                        <i class="fa-solid fa-trophy"></i> Rank: #{{ sub.rank }}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="performance-tier">

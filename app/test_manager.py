@@ -9,6 +9,8 @@ from app.models import (
 )
 from app.firebase_sync import FirebaseSync
 
+import random
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 ACTIVE_TEST_FILE = os.path.join(DATA_DIR, "active_test.json")
@@ -71,8 +73,11 @@ class TestManager:
             return None
 
     @staticmethod
-    def get_active_test_for_student() -> Optional[Dict[str, Any]]:
-        """Get the active test sanitized for students (no correct answers or explanations)."""
+    def get_active_test_for_student(shuffle_seed: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Get the active test sanitized for students (no correct answers or explanations),
+        with questions shuffled uniquely per candidate session.
+        """
         test = TestManager.get_active_test()
         if not test:
             return None
@@ -89,6 +94,15 @@ class TestManager:
                 "subject": q.get("subject", "General"),
                 "marks": q.get("marks", 1)
             })
+
+        # Shuffle questions uniquely per candidate session if seed provided
+        if shuffle_seed and len(sanitized_questions) > 1:
+            rng = random.Random(str(shuffle_seed))
+            rng.shuffle(sanitized_questions)
+
+        # Assign display question numbers sequentially 1..N
+        for idx, q in enumerate(sanitized_questions):
+            q["display_q_no"] = idx + 1
 
         return {
             "id": test["id"],
@@ -718,20 +732,45 @@ class TestManager:
     @staticmethod
     def get_submission(submission_id: str) -> Optional[Dict[str, Any]]:
         file_path = os.path.join(SUBMISSIONS_DIR, f"{submission_id}.json")
+        sub_data = None
         if not os.path.exists(file_path):
-            cloud_sub = FirebaseSync.fetch_submission_detail_from_cloud(submission_id)
-            if cloud_sub:
-                return cloud_sub
+            sub_data = FirebaseSync.fetch_submission_detail_from_cloud(submission_id)
+        else:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    sub_data = json.load(f)
+            except Exception as e:
+                print(f"Error loading submission {submission_id}: {e}")
+                sub_data = FirebaseSync.fetch_submission_detail_from_cloud(submission_id)
+
+        if not sub_data:
             return None
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading submission {submission_id}: {e}")
-            cloud_sub = FirebaseSync.fetch_submission_detail_from_cloud(submission_id)
-            if cloud_sub:
-                return cloud_sub
-            return None
+
+        # Compute rank and percentile for this submission relative to all candidates of the test
+        test_id = sub_data.get("test_id")
+        all_subs = [s for s in TestManager.get_all_submissions() if s.get("test_id") == test_id]
+        total_candidates = len(all_subs)
+        if total_candidates > 0:
+            s_score = float(sub_data.get("total_score", 0))
+            count_less_equal = sum(1 for s in all_subs if float(s.get("score", 0)) <= s_score)
+            percentile_val = round((count_less_equal / total_candidates) * 100, 2)
+            sub_data["percentile"] = percentile_val
+            sub_data["percentile_str"] = f"{percentile_val:.2f}%"
+
+            # Rank
+            all_subs.sort(key=lambda x: (-float(x.get("score", 0)), float(x.get("time_taken_seconds", 999999))))
+            for idx, s in enumerate(all_subs):
+                if s.get("id") == submission_id:
+                    sub_data["rank"] = idx + 1
+                    break
+            sub_data["total_candidates"] = total_candidates
+        else:
+            sub_data["percentile"] = 100.0
+            sub_data["percentile_str"] = "100.00%"
+            sub_data["rank"] = 1
+            sub_data["total_candidates"] = 1
+
+        return sub_data
 
     @staticmethod
     def get_all_submissions() -> List[Dict[str, Any]]:
@@ -754,6 +793,7 @@ class TestManager:
         """
         Get student submissions strictly for the currently active test.
         Sorted by highest score first (Rank 1 Topper at top).
+        Calculates official NTA / JEE / CET Percentile score for all candidates.
         """
         active_test = TestManager.get_active_test()
         if not active_test or "id" not in active_test:
@@ -773,9 +813,17 @@ class TestManager:
             )
         )
 
-        # Assign ranks
+        total_candidates = len(test_subs)
         for idx, sub in enumerate(test_subs):
             sub["rank"] = idx + 1
             sub["is_topper"] = (idx == 0)
+
+            # NTA / JEE / CET Percentile Formula:
+            # Percentile = (Candidates with raw score <= candidate's score / Total Candidates) * 100
+            s_score = float(sub.get("score", 0))
+            count_less_equal = sum(1 for other in test_subs if float(other.get("score", 0)) <= s_score)
+            percentile_val = round((count_less_equal / total_candidates) * 100, 2) if total_candidates > 0 else 100.0
+            sub["percentile"] = percentile_val
+            sub["percentile_str"] = f"{percentile_val:.2f}%"
 
         return test_subs

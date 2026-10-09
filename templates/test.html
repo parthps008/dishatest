@@ -69,7 +69,7 @@
             <div class="q-top-meta">
                 <div class="q-label-number">
                     <i class="fa-solid fa-file-circle-question text-maroon"></i>
-                    <span id="qNumberDisplay">Question No. {{ q1.q_no }} of {{ test.total_questions }}</span>
+                    <span id="qNumberDisplay">Question No. 1 of {{ test.total_questions }}</span>
                 </div>
                 <div class="q-meta-badges">
                     <span class="badge badge-navy" id="qSubjectBadge">{{ q1.subject or 'General' }}</span>
@@ -180,9 +180,9 @@
                  id="palette_box_{{ loop.index0 }}" 
                  data-index="{{ loop.index0 }}" 
                  data-subject="{{ q.subject or 'General' }}"
-                 title="Question {{ q.q_no }} ({{ q.subject or 'General' }})"
+                 title="Question {{ q.display_q_no or loop.index }} ({{ q.subject or 'General' }})"
                  onclick="jumpToQuestion({{ loop.index0 }})">
-                {{ q.q_no }}
+                {{ q.display_q_no or loop.index }}
             </div>
             {% endfor %}
         </div>
