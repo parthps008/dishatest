@@ -23,11 +23,15 @@ wheels/
 .installed.cfg
 *.egg
 
-# Temporary Uploads
+# Temporary Uploads & Dynamic Data (persisted in Google Firebase cloud)
 data/uploads/*
 !data/uploads/.gitkeep
 static/uploads/paper_previews/*
 !static/uploads/paper_previews/.gitkeep
+data/active_test.json
+data/submissions_index.json
+data/submissions/
+data/firebase_config.json
 
 # OS & Editor
 .DS_Store

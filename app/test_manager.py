@@ -22,9 +22,20 @@ os.makedirs(SUBMISSIONS_DIR, exist_ok=True)
 os.makedirs(QUESTION_IMAGES_DIR, exist_ok=True)
 
 class TestManager:
+    _cloud_checked_on_boot = False
+
     @staticmethod
     def get_active_test() -> Optional[Dict[str, Any]]:
         """Get the currently active test with all details (including answers for admin)."""
+        # On first request after boot/wake, ensure cloud state is synchronized
+        if FirebaseSync.is_enabled() and not TestManager._cloud_checked_on_boot:
+            TestManager._cloud_checked_on_boot = True
+            cloud_test = FirebaseSync.fetch_active_test_from_cloud()
+            if cloud_test:
+                return cloud_test
+            elif not os.path.exists(ACTIVE_TEST_FILE):
+                return None
+
         if not os.path.exists(ACTIVE_TEST_FILE):
             # If server restarted (e.g. Render after 15m), restore from Firebase cloud
             cloud_test = FirebaseSync.fetch_active_test_from_cloud()
