@@ -222,7 +222,7 @@
             <div class="review-question-card {{ q_status }}-card" data-status="{{ q_status }}">
                 <div class="review-q-header">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="badge badge-navy">Q{{ q.q_no }}</span>
+                        <span class="badge badge-navy">Question {{ q.display_q_no or loop.index }}</span>
                         <span class="badge badge-gold">{{ q.subject }}</span>
                     </div>
                     <div>
@@ -236,12 +236,15 @@
                     </div>
                 </div>
 
+                {% set is_generic_statement = not q.text or (q.text|string|lower).startswith('question ') %}
+                {% if not (q.image_url and is_generic_statement) %}
                 <div class="review-q-text">{{ q.text }}</div>
+                {% endif %}
 
                 {% if q.image_url %}
                 <div class="q-diagram-container" style="margin: 0.85rem 0;">
                     <div class="q-diagram-wrapper">
-                        <img src="{{ q.image_url }}" class="q-diagram-img" style="max-height: 480px;" alt="Question {{ q.q_no }} Diagram" onclick="openDiagramLightbox(this.src)">
+                        <img src="{{ q.image_url }}" class="q-diagram-img" style="max-height: 480px;" alt="Question {{ q.display_q_no or loop.index }} Diagram" onclick="openDiagramLightbox(this.src)">
                         <div class="q-diagram-caption"><i class="fa-solid fa-magnifying-glass-plus"></i> Click diagram to expand</div>
                     </div>
                 </div>

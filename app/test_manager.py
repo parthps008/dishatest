@@ -103,6 +103,9 @@ class TestManager:
         # Assign display question numbers sequentially 1..N
         for idx, q in enumerate(sanitized_questions):
             q["display_q_no"] = idx + 1
+            raw_text = (q.get("text") or "").strip()
+            if raw_text.lower() == f"question {q.get('q_no')}".lower():
+                q["text"] = f"Question {idx + 1}"
 
         return {
             "id": test["id"],
@@ -242,7 +245,7 @@ class TestManager:
 
         found = False
         for q in active_test["questions"]:
-            if q.get("q_no") == q_no:
+            if str(q.get("q_no")) == str(q_no) or str(q.get("id")) == str(q_no):
                 q["correct_answer"] = new_answer
                 q["answer_auto_detected"] = False
                 found = True
@@ -591,7 +594,23 @@ class TestManager:
         subject_stats: Dict[str, Dict[str, Any]] = {}
         question_results: List[QuestionResult] = []
 
-        for q in questions:
+        # Determine question evaluation and presentation sequence:
+        # If candidate took the test with a specific question order (shuffled or custom session),
+        # evaluate and present question_results in THAT EXACT ORDER so Question 1 on the scorecard
+        # matches Question 1 on the candidate's exam screen 100%!
+        eval_questions = []
+        if submission.question_order:
+            for q_ref in submission.question_order:
+                matched = q_map.get(q_ref) or (q_map.get(int(q_ref)) if str(q_ref).isdigit() else None)
+                if matched and matched not in eval_questions:
+                    eval_questions.append(matched)
+            for q in questions:
+                if q not in eval_questions:
+                    eval_questions.append(q)
+        else:
+            eval_questions = questions
+
+        for display_idx, q in enumerate(eval_questions, start=1):
             q_no = q["q_no"]
             subj = q.get("subject", "General")
             if subj not in subject_stats:
@@ -631,9 +650,14 @@ class TestManager:
                 unattempted_count += 1
                 subject_stats[subj]["unattempted"] += 1
 
+            display_text = q["text"]
+            if display_text and display_text.strip().lower() == f"question {q_no}".lower():
+                display_text = f"Question {display_idx}"
+
             question_results.append(QuestionResult(
                 q_no=q_no,
-                text=q["text"],
+                display_q_no=display_idx,
+                text=display_text,
                 options=q["options"],
                 subject=subj,
                 selected_option=selected,
@@ -682,7 +706,8 @@ class TestManager:
             auto_submitted=submission.auto_submitted,
             submitted_at=now_str,
             subject_scores=subject_scores_list,
-            question_results=question_results
+            question_results=question_results,
+            question_order=submission.question_order
         )
 
         # Save individual submission JSON

@@ -201,6 +201,57 @@ class TestShufflingAndPercentile(unittest.TestCase):
         self.assertIsInstance(pdf_bytes, bytes)
         self.assertGreater(len(pdf_bytes), 2000)
 
+    def test_candidate_order_and_answer_mapping_preservation(self):
+        """Tests that candidate's question order, selected options, and answers map 1:1 on the result scorecard."""
+        # Update Question 1 and Question 2 correct answer to 'B'
+        TestManager.update_question_answer(1, "B")
+        TestManager.update_question_answer(2, "B")
+
+        # Student gets questions in shuffled sequence [2, 1, 3, 4, 5]
+        # Candidate Screen Q1 is Master Q2. Candidate selects 'B'.
+        # Candidate Screen Q2 is Master Q1. Candidate selects 'B'.
+        sub_payload = {
+            "test_id": "test_shuff_perc_demo",
+            "student_name": "TestCandidate",
+            "roll_no": "TC-999",
+            "answers": {"2": "B", "1": "B"},
+            "question_order": [2, 1, 3, 4, 5],
+            "time_taken_seconds": 120,
+            "auto_submitted": False
+        }
+        res = self.client.post("/api/test/submit", json=sub_payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        sub_id = data["submission_id"]
+
+        # Fetch scorecard page
+        res_page = self.client.get(f"/result/{sub_id}")
+        self.assertEqual(res_page.status_code, 200)
+        html = res_page.text
+
+        # Verify that Question 1 on the scorecard corresponds to candidate's Screen Q1
+        sub_obj = TestManager.get_submission(sub_id)
+        qr = sub_obj["question_results"]
+        # Q1 on screen (Master Q2) was answered 'B', correct is 'B' -> Correct!
+        self.assertEqual(qr[0]["display_q_no"], 1)
+        self.assertEqual(qr[0]["q_no"], 2)
+        self.assertEqual(qr[0]["selected_option"], "B")
+        self.assertEqual(qr[0]["correct_answer"], "B")
+        self.assertTrue(qr[0]["is_correct"])
+
+        # Q2 on screen (Master Q1) was answered 'B', correct is 'B' -> Correct!
+        self.assertEqual(qr[1]["display_q_no"], 2)
+        self.assertEqual(qr[1]["q_no"], 1)
+        self.assertEqual(qr[1]["selected_option"], "B")
+        self.assertEqual(qr[1]["correct_answer"], "B")
+        self.assertTrue(qr[1]["is_correct"])
+
+        # Total score for both correct answers is 2.0
+        self.assertEqual(sub_obj["total_score"], 2.0)
+        self.assertIn("Question 1", html)
+        self.assertIn("Question 2", html)
+        self.assertIn("Your Choice & Correct", html)
+
 
 if __name__ == "__main__":
     unittest.main()

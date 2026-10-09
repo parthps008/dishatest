@@ -46,11 +46,13 @@ class TestSubmissionRequest(BaseModel):
     student_name: str
     roll_no: Optional[str] = "N/A"
     answers: Dict[int, Optional[str]] = Field(default_factory=dict)
+    question_order: Optional[List[int]] = None
     time_taken_seconds: int = 0
     auto_submitted: bool = False
 
 class QuestionResult(BaseModel):
     q_no: int
+    display_q_no: Optional[int] = None
     text: str
     options: List[Option]
     subject: str
@@ -91,3 +93,7 @@ class SubmissionResult(BaseModel):
     submitted_at: str
     subject_scores: List[SubjectScore]
     question_results: List[QuestionResult]
+    question_order: Optional[List[int]] = None
+    rank: Optional[int] = None
+    percentile: Optional[float] = None
+    percentile_str: Optional[str] = None

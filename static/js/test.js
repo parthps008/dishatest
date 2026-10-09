@@ -686,11 +686,14 @@ async function executeSubmission(isAuto = false) {
     const studentName = window.STUDENT_NAME || "Candidate";
     const studentRoll = window.STUDENT_ROLL || "N/A";
 
+    const questionOrder = (data && data.questions) ? data.questions.map(q => q.q_no) : [];
+
     const payload = {
         test_id: data ? data.id : "",
         student_name: studentName,
         roll_no: studentRoll,
         answers: userAnswers,
+        question_order: questionOrder,
         time_taken_seconds: timeSpent,
         auto_submitted: isAuto
     };
