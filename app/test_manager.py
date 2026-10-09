@@ -7,6 +7,7 @@ from app.models import (
     TestData, Question, TestSubmissionRequest,
     SubmissionResult, QuestionResult, SubjectScore
 )
+from app.firebase_sync import FirebaseSync
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -25,12 +26,19 @@ class TestManager:
     def get_active_test() -> Optional[Dict[str, Any]]:
         """Get the currently active test with all details (including answers for admin)."""
         if not os.path.exists(ACTIVE_TEST_FILE):
+            # If server restarted (e.g. Render after 15m), restore from Firebase cloud
+            cloud_test = FirebaseSync.fetch_active_test_from_cloud()
+            if cloud_test:
+                return cloud_test
             return None
         try:
             with open(ACTIVE_TEST_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Error loading active test: {e}")
+            cloud_test = FirebaseSync.fetch_active_test_from_cloud()
+            if cloud_test:
+                return cloud_test
             return None
 
     @staticmethod
@@ -66,6 +74,12 @@ class TestManager:
         }
 
     @staticmethod
+    def _save_active_test_and_sync(active_test: Dict[str, Any]):
+        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
+            json.dump(active_test, f, indent=2, ensure_ascii=False)
+        FirebaseSync.sync_active_test_to_cloud_async(active_test)
+
+    @staticmethod
     def set_active_test(test_data: Dict[str, Any]) -> Dict[str, Any]:
         """Save and activate a new test. Overwrites if an active test exists."""
         if "id" not in test_data:
@@ -73,20 +87,21 @@ class TestManager:
         if "created_at" not in test_data:
             test_data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-            json.dump(test_data, f, indent=2, ensure_ascii=False)
-
+        TestManager._save_active_test_and_sync(test_data)
         return test_data
 
     @staticmethod
     def delete_active_test() -> bool:
         """
         Delete the currently active test, its uploaded PDF, all question diagrams,
-        and all associated student logs/submissions.
+        and all associated student logs/submissions from local disk AND Firebase cloud.
         Enforces test-wise logs and 100% disk cleanup when a test is deleted.
         """
         active_test = TestManager.get_active_test()
         test_id = active_test.get("id") if active_test else None
+
+        # Delete from Firebase cloud database
+        FirebaseSync.delete_active_test_from_cloud_async()
 
         # 1. Delete all submission files for this test
         if test_id and os.path.exists(SUBMISSIONS_INDEX_FILE):
@@ -185,8 +200,7 @@ class TestManager:
                 break
 
         if found:
-            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            TestManager._save_active_test_and_sync(active_test)
             return True
         return False
 
@@ -205,8 +219,7 @@ class TestManager:
                 break
 
         if found:
-            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            TestManager._save_active_test_and_sync(active_test)
             return True
         return False
 
@@ -235,8 +248,7 @@ class TestManager:
                 break
 
         if found:
-            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            TestManager._save_active_test_and_sync(active_test)
             return True
         return False
 
@@ -312,8 +324,7 @@ class TestManager:
         ))
         active_test["subjects"] = unique_subjects or ["General"]
 
-        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-            json.dump(active_test, f, indent=2, ensure_ascii=False)
+        TestManager._save_active_test_and_sync(active_test)
 
         return target_q
 
@@ -377,8 +388,7 @@ class TestManager:
         ))
         active_test["subjects"] = unique_subjects or ["General"]
 
-        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-            json.dump(active_test, f, indent=2, ensure_ascii=False)
+        TestManager._save_active_test_and_sync(active_test)
 
         return True
 
@@ -448,8 +458,7 @@ class TestManager:
         ))
         active_test["subjects"] = unique_subjects or ["General"]
 
-        with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-            json.dump(active_test, f, indent=2, ensure_ascii=False)
+        TestManager._save_active_test_and_sync(active_test)
 
         return new_question
 
@@ -472,8 +481,7 @@ class TestManager:
                 break
 
         if found:
-            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            TestManager._save_active_test_and_sync(active_test)
             return True
         return False
 
@@ -506,8 +514,7 @@ class TestManager:
                 break
 
         if found:
-            with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
-                json.dump(active_test, f, indent=2, ensure_ascii=False)
+            TestManager._save_active_test_and_sync(active_test)
             return True
         return False
 
@@ -637,6 +644,9 @@ class TestManager:
         # Update submissions index
         TestManager._add_to_submissions_index(result)
 
+        # Synchronize submission & index to Firebase cloud
+        FirebaseSync.sync_submission_to_cloud_async(result)
+
         return result
 
     @staticmethod
@@ -674,22 +684,34 @@ class TestManager:
     def get_submission(submission_id: str) -> Optional[Dict[str, Any]]:
         file_path = os.path.join(SUBMISSIONS_DIR, f"{submission_id}.json")
         if not os.path.exists(file_path):
+            cloud_sub = FirebaseSync.fetch_submission_detail_from_cloud(submission_id)
+            if cloud_sub:
+                return cloud_sub
             return None
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Error loading submission {submission_id}: {e}")
+            cloud_sub = FirebaseSync.fetch_submission_detail_from_cloud(submission_id)
+            if cloud_sub:
+                return cloud_sub
             return None
 
     @staticmethod
     def get_all_submissions() -> List[Dict[str, Any]]:
         if not os.path.exists(SUBMISSIONS_INDEX_FILE):
+            cloud_subs = FirebaseSync.fetch_submissions_from_cloud()
+            if cloud_subs:
+                return cloud_subs
             return []
         try:
             with open(SUBMISSIONS_INDEX_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
+            cloud_subs = FirebaseSync.fetch_submissions_from_cloud()
+            if cloud_subs:
+                return cloud_subs
             return []
 
     @staticmethod

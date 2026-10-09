@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from app.models import TestSubmissionRequest
 from app.pdf_parser import parse_pdf_test
 from app.test_manager import TestManager
+from app.firebase_sync import FirebaseSync
 from app.auth import (
     ADMIN_USERNAME,
     ADMIN_PASSWORD,
@@ -36,6 +37,14 @@ os.makedirs(QUESTION_IMAGES_DIR, exist_ok=True)
 os.makedirs(PAPER_PREVIEWS_DIR, exist_ok=True)
 
 app = FastAPI(title="Disha Academy Test Portal")
+
+@app.on_event("startup")
+async def on_startup():
+    """Restores active test, question images, and submissions from Firebase on boot."""
+    try:
+        FirebaseSync.init_and_restore()
+    except Exception as e:
+        print(f"[Startup] Error in FirebaseSync startup: {e}")
 
 @app.middleware("http")
 async def add_cache_control_header(request: Request, call_next):
@@ -172,6 +181,7 @@ async def admin_page(request: Request):
     active_test = TestManager.get_active_test()
     submissions = TestManager.get_active_test_submissions()
     topper = submissions[0] if submissions else None
+    firebase_status = FirebaseSync.get_status()
     response = templates.TemplateResponse(
         request=request,
         name="admin.html",
@@ -180,7 +190,8 @@ async def admin_page(request: Request):
             "submissions": submissions,
             "topper": topper,
             "is_admin": True,
-            "current_admin": ADMIN_USERNAME
+            "current_admin": ADMIN_USERNAME,
+            "firebase_status": firebase_status
         }
     )
     return response
@@ -985,3 +996,88 @@ async def load_sample_test(request: Request):
     parsed = parse_pdf_test(sample_path, override_duration=30)
     saved = TestManager.set_active_test(parsed)
     return {"success": True, "message": "Sample Disha Academy Test loaded!", "test": saved}
+
+
+# ----------------- Firebase Cloud Persistence Endpoints -----------------
+
+class FirebaseConfigPayload(BaseModel):
+    database_url: str
+    secret: Optional[str] = None
+
+@app.get("/api/admin/firebase-status")
+async def get_firebase_status_api(request: Request):
+    """Returns Firebase connection and configuration status."""
+    require_admin_auth(request)
+    status = FirebaseSync.get_status()
+    is_connected = False
+    conn_msg = ""
+    if status["enabled"]:
+        is_connected, conn_msg = FirebaseSync.test_connection()
+    return {
+        "success": True,
+        **status,
+        "is_connected": is_connected,
+        "connection_message": conn_msg
+    }
+
+@app.post("/api/admin/firebase-config")
+async def update_firebase_config_api(request: Request, payload: FirebaseConfigPayload):
+    """Save or update Firebase Realtime Database URL and secret."""
+    require_admin_auth(request)
+    success = FirebaseSync.set_config(payload.database_url, payload.secret)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to save Firebase configuration.")
+
+    is_connected = False
+    conn_msg = ""
+    if FirebaseSync.is_enabled():
+        is_connected, conn_msg = FirebaseSync.test_connection()
+        if is_connected:
+            # Sync active test if present locally
+            local_test = TestManager.get_active_test()
+            if local_test:
+                FirebaseSync.sync_active_test_to_cloud(local_test)
+
+    return {
+        "success": True,
+        "is_connected": is_connected,
+        "connection_message": conn_msg,
+        "message": "Firebase configuration saved successfully."
+    }
+
+@app.post("/api/admin/firebase-test-connection")
+async def test_firebase_connection_api(request: Request):
+    """Tests connection to the configured Firebase Realtime Database."""
+    require_admin_auth(request)
+    if not FirebaseSync.is_enabled():
+        return {
+            "success": False,
+            "is_connected": False,
+            "connection_message": "FIREBASE_DATABASE_URL is not configured."
+        }
+    connected, msg = FirebaseSync.test_connection()
+    return {
+        "success": connected,
+        "is_connected": connected,
+        "connection_message": msg
+    }
+
+@app.post("/api/admin/firebase-sync-now")
+async def trigger_firebase_sync_now_api(request: Request):
+    """Forces immediate synchronization of active test and all submissions to Firebase."""
+    require_admin_auth(request)
+    if not FirebaseSync.is_enabled():
+        raise HTTPException(status_code=400, detail="Firebase is not configured. Please enter your Firebase Database URL first.")
+
+    active_test = TestManager.get_active_test()
+    test_synced = False
+    if active_test:
+        test_synced = FirebaseSync.sync_active_test_to_cloud(active_test)
+
+    subs = TestManager.get_all_submissions()
+    return {
+        "success": True,
+        "test_synced": test_synced,
+        "submissions_count": len(subs),
+        "message": "Active test and submissions synchronized with Firebase cloud database!"
+    }

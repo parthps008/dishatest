@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initImagesDropzone();
     initPdfSliceDropzone();
     initMultipleCutsDropzone();
+    initFirebaseStatus();
 });
 
 // Dropzone Initialization
@@ -2582,6 +2583,225 @@ async function updateQuestionAnswer(qNo, newAnswer) {
 
 function closeQuestionsModal() {
     document.getElementById('questionsModal').classList.remove('open');
+}
+
+// ===================================================
+// Google Firebase Cloud Persistence (24/7 Auto-Sync)
+// ===================================================
+
+let firebaseConnected = false;
+
+async function initFirebaseStatus() {
+    try {
+        const res = await fetch('/api/admin/firebase-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        updateFirebaseStatusUi(data);
+    } catch (e) {
+        console.warn('Could not check Firebase status:', e);
+    }
+}
+
+function updateFirebaseStatusUi(data) {
+    const textEl = document.getElementById('firebaseStatusText');
+    const iconEl = document.getElementById('fbHeaderIcon');
+    const btnEl = document.getElementById('firebaseConfigBtn');
+
+    firebaseConnected = data.is_connected;
+
+    if (data.is_connected) {
+        if (textEl) textEl.textContent = 'Cloud Sync: Active';
+        if (iconEl) {
+            iconEl.className = 'fa-solid fa-cloud-bolt';
+            iconEl.style.color = '#10b981';
+        }
+        if (btnEl) {
+            btnEl.style.borderColor = '#10b981';
+            btnEl.title = 'Firebase 24/7 Cloud Persistence is Active! Tests & photos are safe from 15-minute Render sleep.';
+        }
+    } else if (data.enabled) {
+        if (textEl) textEl.textContent = 'Cloud Sync: Connecting...';
+        if (iconEl) {
+            iconEl.className = 'fa-solid fa-cloud';
+            iconEl.style.color = '#f59e0b';
+        }
+    } else {
+        if (textEl) textEl.textContent = 'Cloud Sync: Off';
+        if (iconEl) {
+            iconEl.className = 'fa-solid fa-cloud';
+            iconEl.style.color = '#ef4444';
+        }
+        if (btnEl) {
+            btnEl.title = 'Render Free Tier sleeps after 15m. Click to connect Free Google Firebase Database!';
+        }
+    }
+
+    // Modal elements
+    const titleEl = document.getElementById('firebaseStatusTitle');
+    const subEl = document.getElementById('firebaseStatusSubtitle');
+    const statusIcon = document.getElementById('firebaseStatusIcon');
+    const syncBtn = document.getElementById('fbSyncNowBtn');
+    const banner = document.getElementById('firebaseStatusBanner');
+
+    if (banner && titleEl && subEl && statusIcon) {
+        if (data.is_connected) {
+            banner.style.background = '#f0fdf4';
+            banner.style.borderColor = '#bbf7d0';
+            banner.style.color = '#166534';
+            statusIcon.className = 'fa-solid fa-circle-check text-green';
+            titleEl.textContent = 'Connected to Google Firebase Realtime Database!';
+            subEl.textContent = `24/7 persistence active: ${data.database_url}`;
+            if (syncBtn) syncBtn.style.display = 'inline-flex';
+        } else if (data.enabled) {
+            banner.style.background = '#fffbeb';
+            banner.style.borderColor = '#fef3c7';
+            banner.style.color = '#92400e';
+            statusIcon.className = 'fa-solid fa-triangle-exclamation text-gold';
+            titleEl.textContent = 'Configured, but connection check failed.';
+            subEl.textContent = data.connection_message || 'Check database URL or rules.';
+            if (syncBtn) syncBtn.style.display = 'none';
+        } else {
+            banner.style.background = '#f8fafc';
+            banner.style.borderColor = '#e2e8f0';
+            banner.style.color = '#334155';
+            statusIcon.className = 'fa-solid fa-cloud text-navy';
+            titleEl.textContent = 'Not Connected (Local Ephemeral Storage Only)';
+            subEl.textContent = 'Tests and screenshots will be wiped when Render sleeps after 15 minutes of inactivity.';
+            if (syncBtn) syncBtn.style.display = 'none';
+        }
+    }
+
+    const urlInput = document.getElementById('fbDatabaseUrlInput');
+    if (urlInput && data.database_url && !urlInput.value) {
+        urlInput.value = data.database_url;
+    }
+}
+
+function openFirebaseModal() {
+    const modal = document.getElementById('firebaseModal');
+    if (modal) modal.style.display = 'flex';
+    initFirebaseStatus();
+}
+
+function closeFirebaseModal() {
+    const modal = document.getElementById('firebaseModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function handleTestFirebaseConnection() {
+    const urlInput = document.getElementById('fbDatabaseUrlInput');
+    const secretInput = document.getElementById('fbSecretInput');
+    const testBtn = document.getElementById('fbTestBtn');
+
+    const dbUrl = urlInput ? urlInput.value.trim() : '';
+    const secret = secretInput ? secretInput.value.trim() : '';
+
+    if (!dbUrl) {
+        showToast('Please enter a Firebase Database URL first.', 'error');
+        return;
+    }
+
+    if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+    }
+
+    try {
+        const saveRes = await fetch('/api/admin/firebase-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ database_url: dbUrl, secret: secret })
+        });
+        const data = await saveRes.json();
+
+        if (data.is_connected) {
+            showToast('Success! Connected to Firebase Realtime Database!', 'success');
+            initFirebaseStatus();
+        } else {
+            showToast(data.connection_message || 'Connection failed. Check Firebase URL or Rules.', 'error');
+            initFirebaseStatus();
+        }
+    } catch (e) {
+        showToast('Network error while testing connection.', 'error');
+    } finally {
+        if (testBtn) {
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="fa-solid fa-plug"></i> <span>Test Connection</span>';
+        }
+    }
+}
+
+async function handleSaveFirebaseConfig(e) {
+    if (e) e.preventDefault();
+    const urlInput = document.getElementById('fbDatabaseUrlInput');
+    const secretInput = document.getElementById('fbSecretInput');
+    const saveBtn = document.getElementById('fbSaveBtn');
+
+    const dbUrl = urlInput ? urlInput.value.trim() : '';
+    const secret = secretInput ? secretInput.value.trim() : '';
+
+    if (!dbUrl) {
+        showToast('Please enter your Firebase Database URL.', 'error');
+        return;
+    }
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting & Syncing...';
+    }
+
+    try {
+        const response = await fetch('/api/admin/firebase-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ database_url: dbUrl, secret: secret })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            if (data.is_connected) {
+                showToast('Firebase connected! Active test and student data synced to 24/7 cloud!', 'success');
+            } else {
+                showToast(`Saved, but: ${data.connection_message}`, 'warning');
+            }
+            initFirebaseStatus();
+            setTimeout(() => { closeFirebaseModal(); }, 1200);
+        } else {
+            showToast(data.detail || 'Failed to save configuration.', 'error');
+        }
+    } catch (err) {
+        showToast('Network error saving Firebase configuration.', 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save & Connect</span>';
+        }
+    }
+}
+
+async function handleSyncFirebaseNow() {
+    const syncBtn = document.getElementById('fbSyncNowBtn');
+    if (syncBtn) {
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+    }
+
+    try {
+        const res = await fetch('/api/admin/firebase-sync-now', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Synced successfully! ${data.submissions_count} submissions saved to Firebase.`, 'success');
+        } else {
+            showToast(data.detail || 'Sync failed.', 'error');
+        }
+    } catch (e) {
+        showToast('Error syncing with Firebase.', 'error');
+    } finally {
+        if (syncBtn) {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> <span>Sync Active Test Now</span>';
+        }
+    }
 }
 
 
