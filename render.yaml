@@ -8,3 +8,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: FIREBASE_DATABASE_URL
+        value: https://disha-academy-test-default-rtdb.firebaseio.com
