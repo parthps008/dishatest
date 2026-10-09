@@ -22,6 +22,8 @@ os.makedirs(QUESTION_IMAGES_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 
+DEFAULT_DATABASE_URL = "https://disha-academy-test-default-rtdb.firebaseio.com"
+
 class FirebaseSync:
     """
     Handles automatic 24/7 cloud persistence using Google Firebase Realtime Database.
@@ -47,7 +49,9 @@ class FirebaseSync:
                         return db_url.rstrip("/")
             except Exception:
                 pass
-        return None
+
+        # 3. Default configured Firebase Realtime Database
+        return DEFAULT_DATABASE_URL
 
     @staticmethod
     def get_database_secret() -> Optional[str]:

@@ -49,7 +49,8 @@ class TestFirebaseSync(unittest.TestCase):
         self.assertIn("enabled", data)
 
     def test_firebase_config_endpoint(self):
-        with patch.object(FirebaseSync, "test_connection", return_value=(True, "Connected!")):
+        with patch.object(FirebaseSync, "test_connection", return_value=(True, "Connected!")), \
+             patch.object(FirebaseSync, "set_config", return_value=True):
             resp = self.client.post(
                 "/api/admin/firebase-config",
                 json={"database_url": "https://dummy-test-default-rtdb.firebaseio.com"},
@@ -58,9 +59,6 @@ class TestFirebaseSync(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertTrue(data.get("success"))
-
-            # Clean up config file
-            FirebaseSync.set_config("")
 
 if __name__ == "__main__":
     unittest.main()
