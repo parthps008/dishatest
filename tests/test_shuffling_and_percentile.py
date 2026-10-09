@@ -16,9 +16,14 @@ class TestShufflingAndPercentile(unittest.TestCase):
         self.fb_patch1 = patch.object(FirebaseSync, "sync_active_test_to_cloud", return_value=True)
         self.fb_patch2 = patch.object(FirebaseSync, "delete_active_test_from_cloud", return_value=True)
         self.fb_patch3 = patch.object(FirebaseSync, "sync_submission_to_cloud", return_value=True)
+        self.fb_patch4 = patch.object(FirebaseSync, "fetch_active_test_from_cloud", return_value=None)
+        self.fb_patch5 = patch.object(FirebaseSync, "fetch_submissions_from_cloud", return_value={})
         self.fb_patch1.start()
         self.fb_patch2.start()
         self.fb_patch3.start()
+        self.fb_patch4.start()
+        self.fb_patch5.start()
+        TestManager._cloud_checked_on_boot = True
 
         self.client = TestClient(app)
         self.token = create_session_token(ADMIN_USERNAME)
@@ -85,6 +90,10 @@ class TestShufflingAndPercentile(unittest.TestCase):
         self.fb_patch1.stop()
         self.fb_patch2.stop()
         self.fb_patch3.stop()
+        self.fb_patch4.stop()
+        self.fb_patch5.stop()
+        TestManager._cloud_checked_on_boot = False
+        FirebaseSync.fetch_active_test_from_cloud()
 
     def test_question_shuffling_per_student(self):
         """Questions are shuffled uniquely for different students, but stable for same student session."""

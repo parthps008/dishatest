@@ -50,6 +50,68 @@ function getTestData() {
     return window.TEST_DATA || (typeof TEST_DATA !== 'undefined' ? TEST_DATA : null);
 }
 
+// ------------------- Session Persistence Helpers -------------------
+
+function getStorageKey() {
+    const data = getTestData();
+    const testId = (data && data.id) ? data.id : 'default_test';
+    const roll = window.STUDENT_ROLL || 'candidate';
+    return `disha_cbt_session_${testId}_${roll}`;
+}
+
+function loadSessionState() {
+    try {
+        const raw = localStorage.getItem(getStorageKey());
+        if (raw) return JSON.parse(raw);
+    } catch (e) {
+        console.warn("Storage read error:", e);
+    }
+    return null;
+}
+
+function persistSessionState() {
+    try {
+        const data = getTestData();
+        if (!data) return;
+        const key = getStorageKey();
+
+        let startTime = Date.now();
+        let endTime = startTime + timeRemaining * 1000;
+
+        try {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+                const prev = JSON.parse(raw);
+                if (prev && prev.endTime) {
+                    endTime = prev.endTime;
+                    startTime = prev.startTime || startTime;
+                }
+            }
+        } catch (e) {}
+
+        const session = {
+            testId: data.id,
+            startTime: startTime,
+            durationSeconds: totalExamSeconds,
+            endTime: endTime,
+            answers: userAnswers,
+            states: questionStates,
+            currentIndex: currentIndex
+        };
+        localStorage.setItem(key, JSON.stringify(session));
+    } catch (e) {
+        console.warn("Storage write error:", e);
+    }
+}
+
+function clearSessionState() {
+    try {
+        localStorage.removeItem(getStorageKey());
+    } catch (e) {}
+}
+
+// ------------------- Exam Initialization -------------------
+
 function initExam() {
     const data = getTestData();
     if (!data || !data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
@@ -62,15 +124,50 @@ function initExam() {
 
     totalQuestions = data.questions.length;
     totalExamSeconds = (data.duration_minutes || 30) * 60;
-    timeRemaining = totalExamSeconds;
 
-    // Initialize question states
-    questionStates = new Array(totalQuestions).fill('not_visited');
-    questionStates[0] = 'not_answered'; // Q1 is open and visited
+    const saved = loadSessionState();
+    const now = Date.now();
+
+    if (saved && saved.testId === data.id && saved.endTime) {
+        // Resume existing active exam session across tab refresh / reload
+        const remainingMs = saved.endTime - now;
+        if (remainingMs <= 0) {
+            timeRemaining = 0;
+            userAnswers = saved.answers || {};
+            renderPaletteGrid();
+            handleTimeExpiryAutoSubmit();
+            return;
+        }
+
+        timeRemaining = Math.max(0, Math.floor(remainingMs / 1000));
+        userAnswers = saved.answers || {};
+
+        if (Array.isArray(saved.states) && saved.states.length === totalQuestions) {
+            questionStates = saved.states;
+        } else {
+            questionStates = new Array(totalQuestions).fill('not_visited');
+            questionStates[0] = 'not_answered';
+        }
+
+        if (typeof saved.currentIndex === 'number' && saved.currentIndex >= 0 && saved.currentIndex < totalQuestions) {
+            currentIndex = saved.currentIndex;
+        } else {
+            currentIndex = 0;
+        }
+    } else {
+        // Fresh new exam start
+        timeRemaining = totalExamSeconds;
+        questionStates = new Array(totalQuestions).fill('not_visited');
+        questionStates[0] = 'not_answered';
+        userAnswers = {};
+        currentIndex = 0;
+
+        persistSessionState();
+    }
 
     startCountdownTimer();
     renderPaletteGrid();
-    loadQuestion(0);
+    loadQuestion(currentIndex);
 }
 
 // Countdown Timer
@@ -154,7 +251,7 @@ function loadQuestion(index) {
     currentIndex = index;
     const q = data.questions[index];
     const displayNum = q.display_q_no || (index + 1);
-    const qKey = q.q_no || (index + 1);
+    const qNum = (q.q_no !== undefined && q.q_no !== null) ? q.q_no : (index + 1);
 
     // If this question was never visited, mark it as visited / not_answered (RED)
     if (questionStates[index] === 'not_visited') {
@@ -196,15 +293,15 @@ function loadQuestion(index) {
         }
     }
 
-    // Render Options
-    const selectedOption = userAnswers[qNum] || null;
+    // Render Options for this question
+    const selectedOption = userAnswers[qNum] || userAnswers[String(qNum)] || null;
     const optionsContainer = document.getElementById('optionsContainer');
-    
+
     if (optionsContainer) {
         const options = normalizeOptions(q.options);
         const isGenericOptText = options.every(opt => !opt.text || opt.text.trim().toLowerCase() === `option ${opt.key.toLowerCase()}` || opt.text.trim().toLowerCase() === opt.key.toLowerCase());
         const isCompact = options.length === 4 && (isGenericOptText || options.every(opt => !opt.image_url && (!opt.text || opt.text.trim().length <= 25)));
-        
+
         if (isCompact) {
             optionsContainer.classList.add('compact-options-grid');
         } else {
@@ -244,6 +341,7 @@ function loadQuestion(index) {
     // Update Palette highlights and Legend
     updatePaletteDisplay();
     updateLegendCounters();
+    persistSessionState();
 
     // Scroll to top of card smoothly
     window.scrollTo({ top: 80, behavior: 'smooth' });
@@ -273,33 +371,49 @@ function updateCurrentQuestionStatusBadge(index) {
 // Option Radio Selection Handler
 function selectOptionChoice(key, labelEl) {
     const data = getTestData();
+    if (!data || !data.questions) return;
     const q = data.questions[currentIndex];
-    const qNum = q.q_no || (currentIndex + 1);
+    const qNum = (q.q_no !== undefined && q.q_no !== null) ? q.q_no : (currentIndex + 1);
 
     userAnswers[qNum] = key;
+    persistSessionState();
 
-    const labels = document.querySelectorAll('.cbt-option-item');
-    labels.forEach(l => l.classList.remove('selected'));
-    if (labelEl) labelEl.classList.add('selected');
-
-    const radio = labelEl ? labelEl.querySelector('input[type="radio"]') : null;
-    if (radio) radio.checked = true;
+    const optionsContainer = document.getElementById('optionsContainer');
+    if (optionsContainer) {
+        const labels = optionsContainer.querySelectorAll('.cbt-option-item');
+        labels.forEach(l => {
+            const radio = l.querySelector('input[type="radio"]');
+            if (radio && radio.value === key) {
+                l.classList.add('selected');
+                radio.checked = true;
+            } else {
+                l.classList.remove('selected');
+                if (radio) radio.checked = false;
+            }
+        });
+    }
 }
 
 // Clear Current Response
 function clearCurrentResponse() {
     const data = getTestData();
+    if (!data || !data.questions) return;
     const q = data.questions[currentIndex];
-    const qNum = q.q_no || (currentIndex + 1);
+    const qNum = (q.q_no !== undefined && q.q_no !== null) ? q.q_no : (currentIndex + 1);
 
     delete userAnswers[qNum];
+    delete userAnswers[String(qNum)];
+    persistSessionState();
 
-    const labels = document.querySelectorAll('.cbt-option-item');
-    labels.forEach(l => {
-        l.classList.remove('selected');
-        const radio = l.querySelector('input[type="radio"]');
-        if (radio) radio.checked = false;
-    });
+    const optionsContainer = document.getElementById('optionsContainer');
+    if (optionsContainer) {
+        const labels = optionsContainer.querySelectorAll('.cbt-option-item');
+        labels.forEach(l => {
+            l.classList.remove('selected');
+            const radio = l.querySelector('input[type="radio"]');
+            if (radio) radio.checked = false;
+        });
+    }
 
     // Reset state to not_answered (RED)
     questionStates[currentIndex] = 'not_answered';
@@ -307,7 +421,8 @@ function clearCurrentResponse() {
     updatePaletteDisplay();
     updateLegendCounters();
     if (typeof showToast === 'function') {
-        showToast(`Response cleared for Question ${qNum}.`, 'info');
+        const displayNum = q.display_q_no || (currentIndex + 1);
+        showToast(`Response cleared for Question ${displayNum}.`, 'info');
     }
 }
 
@@ -316,8 +431,8 @@ function evaluateCurrentBeforeMoving() {
     const data = getTestData();
     if (!data || !data.questions) return;
     const q = data.questions[currentIndex];
-    const qNum = q.q_no || (currentIndex + 1);
-    const hasAnswer = Boolean(userAnswers[qNum]);
+    const qNum = (q.q_no !== undefined && q.q_no !== null) ? q.q_no : (currentIndex + 1);
+    const hasAnswer = Boolean(userAnswers[qNum] || userAnswers[String(qNum)]);
 
     if (questionStates[currentIndex] === 'review') {
         return;
@@ -328,23 +443,28 @@ function evaluateCurrentBeforeMoving() {
     } else {
         questionStates[currentIndex] = 'not_answered'; // RED
     }
+    persistSessionState();
 }
 
 // Save & Next Button
 function saveAndNextQuestion() {
     const data = getTestData();
+    if (!data || !data.questions) return;
     const q = data.questions[currentIndex];
-    const qNum = q.q_no || (currentIndex + 1);
-    const hasAnswer = Boolean(userAnswers[qNum]);
+    const qNum = (q.q_no !== undefined && q.q_no !== null) ? q.q_no : (currentIndex + 1);
+    const hasAnswer = Boolean(userAnswers[qNum] || userAnswers[String(qNum)]);
+    const displayNum = q.display_q_no || (currentIndex + 1);
 
     if (hasAnswer) {
         questionStates[currentIndex] = 'answered'; // GREEN
     } else {
         questionStates[currentIndex] = 'not_answered'; // RED
         if (typeof showToast === 'function') {
-            showToast(`Question ${qNum} marked as Not Answered (Red).`, 'info');
+            showToast(`Question ${displayNum} marked as Not Answered (Red).`, 'info');
         }
     }
+
+    persistSessionState();
 
     if (currentIndex < totalQuestions - 1) {
         loadQuestion(currentIndex + 1);
@@ -352,7 +472,7 @@ function saveAndNextQuestion() {
         updatePaletteDisplay();
         updateLegendCounters();
         if (typeof showToast === 'function') {
-            showToast("You are on the last question.", "info");
+            showToast("Answer saved. You are on the last question.", "success");
         }
     }
 }
@@ -382,6 +502,7 @@ function goToPreviousQuestion() {
 // Mark for Review & Next
 function markForReviewAndNext() {
     questionStates[currentIndex] = 'review'; // PURPLE
+    persistSessionState();
     if (currentIndex < totalQuestions - 1) {
         loadQuestion(currentIndex + 1);
     } else {
@@ -407,7 +528,7 @@ function renderPaletteGrid() {
     const data = getTestData();
     if (!data || !data.questions) return;
 
-    // If already pre-rendered by server, just attach data and ensure all boxes exist
+    // If already pre-rendered by server and matches question count
     if (grid.children.length === data.questions.length) {
         updatePaletteDisplay();
         return;
@@ -430,6 +551,7 @@ function renderPaletteGrid() {
     });
 
     grid.innerHTML = html;
+    updatePaletteDisplay();
 }
 
 // Update Palette classes and states
@@ -441,13 +563,13 @@ function updatePaletteDisplay() {
         const box = document.getElementById(`palette_box_${idx}`);
         if (!box) return;
 
-        const qNum = q.q_no || (idx + 1);
+        const qNum = (q.q_no !== undefined && q.q_no !== null) ? q.q_no : (idx + 1);
         box.className = 'palette-box';
 
         const state = questionStates[idx] || 'not_visited';
         box.classList.add(`state-${state}`);
 
-        if (state === 'review' && userAnswers[qNum]) {
+        if (state === 'review' && (userAnswers[qNum] || userAnswers[String(qNum)])) {
             box.classList.add('has-answer');
         }
 
@@ -584,6 +706,7 @@ async function executeSubmission(isAuto = false) {
 
         const resData = await response.json();
         if (response.ok && resData.success) {
+            clearSessionState();
             const isAdmin = window.location.search.includes('from=admin') || (function(){
                 try { return localStorage.getItem('disha_admin_active') === '1'; } catch(e){ return false; }
             })();

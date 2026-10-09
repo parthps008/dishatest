@@ -28,6 +28,8 @@ data/uploads/*
 !data/uploads/.gitkeep
 static/uploads/paper_previews/*
 !static/uploads/paper_previews/.gitkeep
+static/uploads/questions/*
+!static/uploads/questions/.gitkeep
 data/active_test.json
 data/submissions_index.json
 data/submissions/
