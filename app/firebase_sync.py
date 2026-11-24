@@ -134,7 +134,7 @@ class FirebaseSync:
                 return False, f"Firebase returned HTTP status {resp.status}"
         except urllib.error.HTTPError as e:
             if e.code == 401 or e.code == 403:
-                return False, "Permission denied. Check Firebase Database Rules (set to read: true, write: true) or provide FIREBASE_SECRET."
+                return False, "Permission denied (HTTP 401). Your Firebase 30-day Test Mode rules have expired! In Firebase Console -> Realtime Database -> Rules tab, change rules to: { \"rules\": { \".read\": true, \".write\": true } } and click 'Publish', or provide FIREBASE_SECRET."
             return False, f"HTTP Error {e.code}: {e.reason}"
         except Exception as e:
             return False, f"Connection failed: {str(e)}"
@@ -168,6 +168,12 @@ class FirebaseSync:
                 if success:
                     print(f"[FirebaseSync] Synced active test '{test_data.get('title')}' to Firebase cloud.")
                 return success
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                print(f"[FirebaseSync] Permission denied (HTTP {e.code}) syncing active test: Firebase database rules have expired. Please update rules in Firebase Console.")
+            else:
+                print(f"[FirebaseSync] HTTP Error {e.code} syncing active test: {e.reason}")
+            return False
         except Exception as e:
             print(f"[FirebaseSync] Error syncing active test to Firebase: {e}")
             return False

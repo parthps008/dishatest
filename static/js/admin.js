@@ -2606,10 +2606,13 @@ function updateFirebaseStatusUi(data) {
     const textEl = document.getElementById('firebaseStatusText');
     const iconEl = document.getElementById('fbHeaderIcon');
     const btnEl = document.getElementById('firebaseConfigBtn');
+    const alertBanner = document.getElementById('firebaseAlertBanner');
+    const alertMsg = document.getElementById('firebaseAlertMessage');
 
     firebaseConnected = data.is_connected;
 
     if (data.is_connected) {
+        if (alertBanner) alertBanner.style.display = 'none';
         if (textEl) textEl.textContent = 'Cloud Sync: Active';
         if (iconEl) {
             iconEl.className = 'fa-solid fa-cloud-bolt';
@@ -2620,12 +2623,23 @@ function updateFirebaseStatusUi(data) {
             btnEl.title = 'Firebase 24/7 Cloud Persistence is Active! Tests & photos are safe from 15-minute Render sleep.';
         }
     } else if (data.enabled) {
-        if (textEl) textEl.textContent = 'Cloud Sync: Connecting...';
+        if (alertBanner) {
+            alertBanner.style.display = 'flex';
+            if (alertMsg && data.connection_message) {
+                alertMsg.textContent = data.connection_message;
+            }
+        }
+        if (textEl) textEl.textContent = 'Cloud Sync: Rules Expired';
         if (iconEl) {
-            iconEl.className = 'fa-solid fa-cloud';
-            iconEl.style.color = '#f59e0b';
+            iconEl.className = 'fa-solid fa-triangle-exclamation';
+            iconEl.style.color = '#ef4444';
+        }
+        if (btnEl) {
+            btnEl.style.borderColor = '#ef4444';
+            btnEl.title = 'Firebase Permission Denied! 30-day Test Mode rules expired. Click to view 30-second fix.';
         }
     } else {
+        if (alertBanner) alertBanner.style.display = 'none';
         if (textEl) textEl.textContent = 'Cloud Sync: Off';
         if (iconEl) {
             iconEl.className = 'fa-solid fa-cloud';

@@ -124,8 +124,13 @@ class TestManager:
         with open(ACTIVE_TEST_FILE, "w", encoding="utf-8") as f:
             json.dump(active_test, f, indent=2, ensure_ascii=False)
         try:
-            FirebaseSync.sync_active_test_to_cloud(active_test)
+            if FirebaseSync.is_enabled():
+                synced = FirebaseSync.sync_active_test_to_cloud(active_test)
+                active_test["_cloud_synced"] = synced
+            else:
+                active_test["_cloud_synced"] = False
         except Exception as e:
+            active_test["_cloud_synced"] = False
             print(f"[TestManager] Sync to Firebase error: {e}")
 
     @staticmethod
